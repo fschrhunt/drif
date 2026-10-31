@@ -17,7 +17,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/fschrhunt/drif/internal/highlight"
 	"github.com/fschrhunt/drif/internal/paths"
 	"github.com/fschrhunt/drif/internal/render"
 )
@@ -42,24 +41,6 @@ type ColorSet struct {
 	DelFG       string `toml:"del_fg"`
 	DelBG       string `toml:"del_bg"`
 	DelEmphasis string `toml:"del_emphasis"`
-
-	Syntax SyntaxSet `toml:"syntax"`
-}
-
-// SyntaxSet colours the token classes a highlighter can distinguish.
-type SyntaxSet struct {
-	Keyword     string `toml:"keyword"`
-	String      string `toml:"string"`
-	Comment     string `toml:"comment"`
-	Number      string `toml:"number"`
-	Function    string `toml:"function"`
-	Type        string `toml:"type"`
-	Constant    string `toml:"constant"`
-	Operator    string `toml:"operator"`
-	Punctuation string `toml:"punctuation"`
-	Tag         string `toml:"tag"`
-	Attribute   string `toml:"attribute"`
-	Error       string `toml:"error"`
 }
 
 // File is the on-disk shape of a theme.
@@ -145,19 +126,6 @@ func Apply(p *render.Palette, cs ColorSet) error {
 		{"del_fg", cs.DelFG, func(c render.Color) { p.DelFg = c }},
 		{"del_bg", cs.DelBG, func(c render.Color) { p.DelBg = c }},
 		{"del_emphasis", cs.DelEmphasis, func(c render.Color) { p.DelEmphBg = c }},
-
-		{"syntax.keyword", cs.Syntax.Keyword, func(c render.Color) { p.Syntax[highlight.Keyword] = c }},
-		{"syntax.string", cs.Syntax.String, func(c render.Color) { p.Syntax[highlight.String] = c }},
-		{"syntax.comment", cs.Syntax.Comment, func(c render.Color) { p.Syntax[highlight.Comment] = c }},
-		{"syntax.number", cs.Syntax.Number, func(c render.Color) { p.Syntax[highlight.Number] = c }},
-		{"syntax.function", cs.Syntax.Function, func(c render.Color) { p.Syntax[highlight.Function] = c }},
-		{"syntax.type", cs.Syntax.Type, func(c render.Color) { p.Syntax[highlight.Type] = c }},
-		{"syntax.constant", cs.Syntax.Constant, func(c render.Color) { p.Syntax[highlight.Constant] = c }},
-		{"syntax.operator", cs.Syntax.Operator, func(c render.Color) { p.Syntax[highlight.Operator] = c }},
-		{"syntax.punctuation", cs.Syntax.Punctuation, func(c render.Color) { p.Syntax[highlight.Punctuation] = c }},
-		{"syntax.tag", cs.Syntax.Tag, func(c render.Color) { p.Syntax[highlight.Tag] = c }},
-		{"syntax.attribute", cs.Syntax.Attribute, func(c render.Color) { p.Syntax[highlight.Attribute] = c }},
-		{"syntax.error", cs.Syntax.Error, func(c render.Color) { p.Syntax[highlight.Error] = c }},
 	}
 	for _, f := range fields {
 		if f.val == "" {
@@ -186,20 +154,6 @@ func ToColorSet(p *render.Palette) ColorSet {
 		FileFG: h(p.FileFg), FileBG: h(p.FileBg), HunkFG: h(p.HunkFg), HunkBG: h(p.HunkBg),
 		AddFG: h(p.AddFg), AddBG: h(p.AddBg), AddEmphasis: h(p.AddEmphBg),
 		DelFG: h(p.DelFg), DelBG: h(p.DelBg), DelEmphasis: h(p.DelEmphBg),
-		Syntax: SyntaxSet{
-			Keyword:     h(p.Syntax[highlight.Keyword]),
-			String:      h(p.Syntax[highlight.String]),
-			Comment:     h(p.Syntax[highlight.Comment]),
-			Number:      h(p.Syntax[highlight.Number]),
-			Function:    h(p.Syntax[highlight.Function]),
-			Type:        h(p.Syntax[highlight.Type]),
-			Constant:    h(p.Syntax[highlight.Constant]),
-			Operator:    h(p.Syntax[highlight.Operator]),
-			Punctuation: h(p.Syntax[highlight.Punctuation]),
-			Tag:         h(p.Syntax[highlight.Tag]),
-			Attribute:   h(p.Syntax[highlight.Attribute]),
-			Error:       h(p.Syntax[highlight.Error]),
-		},
 	}
 }
 

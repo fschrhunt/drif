@@ -133,6 +133,11 @@ plain", so the failure mode is dull, not broken.
   that are too large or too dissimilar are left undivided rather than speckled.
 - Split rows truncate; single-column rows wrap. Comparing two wrapped columns is worse than
   truncating them, and a diff is usually narrow code.
+- The file header is chrome, not content: it is pinned above the viewport and changes with the file
+  under it. Headers further down still scroll inline, so a second file arriving is visible before
+  it takes the pinned line.
+- The bottom line is transient. It exists while there is a search, a command or a message, and
+  otherwise the content owns the full height. There is no persistent mode or position readout.
 
 ## 8. Colour
 
@@ -141,8 +146,9 @@ Two palettes ship, one for dark backgrounds and one for light, and drif picks be
 (OSC 11), and otherwise by assuming dark. There is no theme option on purpose: the terminal is already themed, and a viewer that asks
 the user to describe their own screen has failed at the one thing it can see for free.
 
-Structure uses the terminal's own colours where possible; syntax uses truecolor only when
-`COLORTERM` says so, with a 256-colour fallback. Never assume a background colour for text that is
+The palette is monochrome apart from green and red. Everything structural — gutters, headers,
+hunk separators, metadata — is a shade of grey, and truecolor is used only when `COLORTERM`
+says so, with a 256-colour fallback. Never assume a background colour for text that is
 not part of a band — that is the terminal equivalent of adapting to the host theme, and it is why
 the output blends instead of fighting you.
 

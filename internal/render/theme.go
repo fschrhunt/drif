@@ -1,6 +1,6 @@
 // Package render draws layout rows as terminal output. It owns the palette,
 // the ANSI encoding and the width maths; the TUI and the pager both use it so
-// they cannot drif apart.
+// they cannot drift apart.
 package render
 
 import (
@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-
-	"github.com/fschrhunt/drif/internal/highlight"
 )
 
 // Color is an optional RGB colour. An unset colour means "leave whatever the
@@ -43,11 +41,11 @@ func Hex(s string) Color {
 	return Color{R: v(1), G: v(3), B: v(5), Set: true}
 }
 
-// ClassCount is the number of highlight classes a palette assigns colours to.
-const ClassCount = int(highlight.Error) + 1
-
-// Palette is one background's colours. Structural colours (headers, gutters)
-// come from the palette; syntax colours are only applied to tokenised text.
+// Palette is one background's colours.
+//
+// Everything is monochrome except the two things a diff is actually about:
+// additions and deletions. Colour that does not mean "added" or "removed" is
+// noise while reading, so there is none.
 type Palette struct {
 	Text   Color
 	Dim    Color
@@ -65,81 +63,50 @@ type Palette struct {
 	FileFg Color
 	FileBg Color
 	Filler Color
-
-	Syntax [ClassCount]Color
 }
 
-// Dark suits terminals with a dark background: muted structure, syntax colour,
-// and tinted bands on changed lines.
+// Dark suits terminals with a dark background.
 func Dark() *Palette {
-	p := &Palette{
-		Text:      Hex("#c9d1d9"),
-		Dim:       Hex("#6e7681"),
-		Accent:    Hex("#a371f7"),
-		AddFg:     Hex("#7ee787"),
-		AddBg:     Hex("#10241a"),
-		AddEmphBg: Hex("#1f4d2f"),
-		DelFg:     Hex("#ffa198"),
-		DelBg:     Hex("#2a1417"),
-		DelEmphBg: Hex("#5c1f26"),
-		HunkFg:    Hex("#79c0ff"),
-		HunkBg:    Hex("#0d1727"),
-		FileFg:    Hex("#e6edf3"),
-		FileBg:    Hex("#161b22"),
-		Filler:    Hex("#0b0e13"),
+	return &Palette{
+		Text:      Hex("#d4d4d4"),
+		Dim:       Hex("#6b6b6b"),
+		Accent:    Hex("#e8e8e8"),
+		AddFg:     Hex("#4ec97a"),
+		AddBg:     Hex("#101a14"),
+		AddEmphBg: Hex("#1d3b2a"),
+		DelFg:     Hex("#e5534b"),
+		DelBg:     Hex("#1e1113"),
+		DelEmphBg: Hex("#4a1e22"),
+		HunkFg:    Hex("#8a8a8a"),
+		HunkBg:    Hex("#121212"),
+		FileFg:    Hex("#e6e6e6"),
+		FileBg:    Hex("#191919"),
+		Filler:    Hex("#0d0d0d"),
 	}
-	p.Syntax[highlight.Keyword] = Hex("#ff7b72")
-	p.Syntax[highlight.String] = Hex("#a5d6ff")
-	p.Syntax[highlight.Comment] = Hex("#6e7681")
-	p.Syntax[highlight.Number] = Hex("#79c0ff")
-	p.Syntax[highlight.Function] = Hex("#d2a8ff")
-	p.Syntax[highlight.Type] = Hex("#ffa657")
-	p.Syntax[highlight.Constant] = Hex("#79c0ff")
-	p.Syntax[highlight.Operator] = Hex("#c9d1d9")
-	p.Syntax[highlight.Punctuation] = Hex("#8b949e")
-	p.Syntax[highlight.Tag] = Hex("#7ee787")
-	p.Syntax[highlight.Attribute] = Hex("#79c0ff")
-	p.Syntax[highlight.Error] = Hex("#ff7b72")
-	return p
 }
 
 // Light suits terminals with a light background.
 func Light() *Palette {
-	p := &Palette{
-		Text:      Hex("#1f2328"),
-		Dim:       Hex("#6e7781"),
-		Accent:    Hex("#8250df"),
+	return &Palette{
+		Text:      Hex("#1f1f1f"),
+		Dim:       Hex("#6e6e6e"),
+		Accent:    Hex("#111111"),
 		AddFg:     Hex("#1a7f37"),
-		AddBg:     Hex("#e6ffec"),
-		AddEmphBg: Hex("#aceebb"),
+		AddBg:     Hex("#eefbf1"),
+		AddEmphBg: Hex("#c9f0d6"),
 		DelFg:     Hex("#cf222e"),
-		DelBg:     Hex("#ffebe9"),
-		DelEmphBg: Hex("#ffcecb"),
-		HunkFg:    Hex("#0550ae"),
-		HunkBg:    Hex("#ddf4ff"),
-		FileFg:    Hex("#1f2328"),
-		FileBg:    Hex("#f6f8fa"),
-		Filler:    Hex("#f0f2f4"),
+		DelBg:     Hex("#fdeff0"),
+		DelEmphBg: Hex("#ffd5d8"),
+		HunkFg:    Hex("#6e6e6e"),
+		HunkBg:    Hex("#f0f0f0"),
+		FileFg:    Hex("#111111"),
+		FileBg:    Hex("#f6f6f6"),
+		Filler:    Hex("#f0f0f0"),
 	}
-	p.Syntax[highlight.Keyword] = Hex("#cf222e")
-	p.Syntax[highlight.String] = Hex("#0a3069")
-	p.Syntax[highlight.Comment] = Hex("#6e7781")
-	p.Syntax[highlight.Number] = Hex("#0550ae")
-	p.Syntax[highlight.Function] = Hex("#8250df")
-	p.Syntax[highlight.Type] = Hex("#953800")
-	p.Syntax[highlight.Constant] = Hex("#0550ae")
-	p.Syntax[highlight.Operator] = Hex("#24292f")
-	p.Syntax[highlight.Punctuation] = Hex("#6e7781")
-	p.Syntax[highlight.Tag] = Hex("#116329")
-	p.Syntax[highlight.Attribute] = Hex("#0550ae")
-	p.Syntax[highlight.Error] = Hex("#cf222e")
-	return p
 }
 
 // DetectPalette returns the palette for the terminal drif is drawing into.
-// There is deliberately no way to choose: the terminal already knows, and a
-// viewer that asks the user to describe their own screen has failed at the one
-// thing it can see for free.
+// There is deliberately no way to choose: the terminal already knows.
 //
 // COLORFGBG wins when it is set, because it is the terminal's own statement of
 // its colours and it is cheap to read. Otherwise the background is asked of the

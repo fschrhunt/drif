@@ -35,22 +35,20 @@ extends = "light"
 
 [colors]
 add_bg = "#010203"
-
-[colors.syntax]
-keyword = "#040506"
+add_fg = "#040506"
 `)
 	p, err := Resolve("mine", ColorSet{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Text != hex("#1f2328") {
+	if p.Text != hex("#1f1f1f") {
 		t.Errorf("text = %v, want the light base", p.Text)
 	}
 	if p.AddBg != hex("#010203") {
 		t.Errorf("add_bg = %v", p.AddBg)
 	}
-	if got := ToColorSet(p); got.Syntax.Keyword != "#040506" {
-		t.Errorf("keyword = %q", got.Syntax.Keyword)
+	if got := ToColorSet(p); got.AddFG != "#040506" {
+		t.Errorf("add_fg = %q", got.AddFG)
 	}
 }
 
@@ -70,12 +68,12 @@ func TestDefaultBaseFollowsTheTerminal(t *testing.T) {
 }
 
 func TestConfigOverridesApplyLast(t *testing.T) {
-	p, err := Resolve("dark", ColorSet{Text: "#000001", Syntax: SyntaxSet{Comment: "#000002"}})
+	p, err := Resolve("dark", ColorSet{Text: "#000001", AddFG: "#000002"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := ToColorSet(p)
-	if got.Text != "#000001" || got.Syntax.Comment != "#000002" {
+	if got.Text != "#000001" || got.AddFG != "#000002" {
 		t.Errorf("overrides = %+v", got)
 	}
 }
