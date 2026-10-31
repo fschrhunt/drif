@@ -42,16 +42,20 @@ ln -sf drif "$(go env GOPATH)/bin/git-drif"
 The `git-drif` link is what makes `git drif` work; git looks up `git-<name>` on `PATH`.
 Releases are attested: `gh attestation verify <archive> -R fschrhunt/drif`.
 
-## Try it on awkward diffs
+## Try it
 
-`scripts/demo.sh` builds a throwaway repository with the cases that break diff viewers: a rename, a
-binary, a mode-only change, a symlink, a deleted file, CRLF, non-ASCII and space-containing paths, a
-4000-line file and an untracked binary.
+`scripts/demo.sh` builds a throwaway repository that reads like one branch of real work: a feature,
+its tests, a rename, a deleted file, a doc update and a one-line fix.
 
 ```sh
 scripts/demo.sh
 cd /tmp/drif-demo && drif
 ```
+
+`scripts/demo.sh --edges` builds the other repository — the shapes that break diff viewers: a
+binary, a symlink, CRLF, non-ASCII and space-containing paths, a mode-only change, a 4000-line file
+and an untracked binary. Reach for it when you change the renderer, not when you want to judge how
+reviewing feels.
 
 `drif config` in any repository prints the revision being compared, which is the quickest way to
 check you are looking at what you think you are:
@@ -237,5 +241,10 @@ there is no incremental lexer to keep in sync.
 
 ```sh
 ./x            # format check, vet, build, race tests
+./x review     # build this checkout and review its own changes with it
+./x demo       # build the demo repository and review it
 ./x test -run Parser ./internal/patch
 ```
+
+`./x review` is the loop this tool is for: the binary that renders the diff is the one built from
+the diff you are reading.

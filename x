@@ -12,6 +12,8 @@ usage: ./x [command] [args...]
   lint               Run go vet
   test [args...]     Forward arguments to go test (default: ./...)
   build [args...]    Forward arguments to go build (default: ./...)
+  review [args...]   Build this checkout and review its own changes with it
+  demo [--edges]     Build the demo repository and review it
   help | --help | -h Show this help
 EOF
 }
@@ -27,8 +29,19 @@ case "$command" in
     fmt)
         [ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && [ "$1" = "--check" ]; } || invalid
         ;;
+    demo)
+        [ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && [ "$1" = "--edges" ]; } || invalid
+        ;;
+    review) ;;
     help|--help|-h) [ "$#" -eq 0 ] || invalid; usage; exit 0 ;;
 esac
+
+# build_local puts the binary under dist/ so review and demo always run the
+# checkout in front of you, not whatever is on PATH.
+build_local() {
+    mkdir -p dist
+    ./x build -o dist/drif ./cmd/drif
+}
 
 case "$command" in
     check)
@@ -56,6 +69,19 @@ case "$command" in
     build)
         if [ "$#" -eq 0 ]; then set -- ./...; fi
         go build "$@"
+        ;;
+    review)
+        # The point is to read the change with the changed program: build this
+        # tree, then run it on this tree.
+        build_local
+        exec ./dist/drif "$@"
+        ;;
+    demo)
+        root=$(pwd)
+        build_local
+        ./scripts/demo.sh "$@" >/dev/null
+        cd "${TMPDIR:-/tmp}/drif-demo"
+        exec "$root/dist/drif"
         ;;
     *) invalid ;;
 esac

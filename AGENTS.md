@@ -33,9 +33,12 @@
 - `.github/workflows/`: CI (Linux, macOS, and a `Required` aggregate the ruleset names), release,
   and weekly dependency updates. `.github/rulesets/main.json` is the branch protection source of
   truth; if you rename the `Required` job, change both.
-- `scripts/demo.sh`: builds a repository of awkward changes (rename, binary, mode-only, symlink,
-  CRLF, non-ASCII paths, unborn HEAD) for looking at by hand. The same cases are pinned in
-  `internal/git/real_test.go`.
+- `scripts/demo.sh`: builds a demo repository. The default is a realistic branch (a feature, tests,
+  a rename, a deletion, a doc update) for judging the experience; `--edges` builds the awkward
+  shapes (binary, symlink, CRLF, non-ASCII paths, mode-only) for changing the renderer. The edge
+  cases are also pinned in `internal/git/real_test.go`.
+- `./x review` and `./x demo` build the current checkout and run it on real changes, so the binary
+  rendering a diff is the one built from it.
 - `test/`: no directory yet; parser fixtures live beside the parser they exercise.
 
 ## Conventions
