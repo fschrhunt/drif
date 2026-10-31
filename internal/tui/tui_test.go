@@ -128,8 +128,8 @@ func TestSearchFindsAndJumps(t *testing.T) {
 func TestScrollClampsAtEdges(t *testing.T) {
 	m := newModel(layout.Unified)
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
-	if m.top != 0 {
-		t.Fatalf("top = %d after scrolling up past the start", m.top)
+	if m.top != m.minTop() {
+		t.Fatalf("top = %d after scrolling up past the start, want %d", m.top, m.minTop())
 	}
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("G")})
 	if m.top != m.maxTop() {

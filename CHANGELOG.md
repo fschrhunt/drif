@@ -6,7 +6,9 @@
   the base branch, including untracked files.
 - Three layouts: side-by-side comparison, unified, and result-only. One key cycles them.
 - A monochrome palette: only additions and deletions carry colour, and only changed lines paint a
-  background. Headers, hunk separators and metadata are text on the terminal's own background. The file header is pinned to the
+  background. Headers, hunk separators and metadata are text on the terminal's own background.
+- The pinned file header is separated from the diff by a single dim rule, and no longer repeats the
+  same file as an inline row when the diff is shorter than the screen. The file header is pinned to the
   top and follows the file you are reading; there is no status line unless you are searching,
   typing a command, or reading an error.
 - Word-level emphasis inside changed line pairs, so a one-character edit reads as a one-character

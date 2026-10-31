@@ -133,9 +133,10 @@ plain", so the failure mode is dull, not broken.
   that are too large or too dissimilar are left undivided rather than speckled.
 - Split rows truncate; single-column rows wrap. Comparing two wrapped columns is worse than
   truncating them, and a diff is usually narrow code.
-- The file header is chrome, not content: it is pinned above the viewport and changes with the file
-  under it. Headers further down still scroll inline, so a second file arriving is visible before
-  it takes the pinned line.
+- The file header is chrome, not content: it is pinned above the viewport, underlined by a single
+  dim rule, and changes with the file under it. Headers further down still scroll inline, so a
+  second file arriving is visible before it takes the pinned line. The viewport may never start on
+  a header: `clampTop` steps off it, because the pinned copy already shows it.
 - The bottom line is transient. It exists while there is a search, a command or a message, and
   otherwise the content owns the full height. There is no persistent mode or position readout.
 
