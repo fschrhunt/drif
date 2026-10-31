@@ -96,15 +96,26 @@ type Options struct {
 // after branching out of the picture.
 func (r *Repo) Load(opts Options) (*patch.ChangeSet, error) {
 	base := opts.Base
-	if base == "" {
+	var mb string
+	if r.hasRef("HEAD") {
+		if base == "" {
+			var err error
+			if base, err = r.ResolveBase(""); err != nil {
+				return nil, err
+			}
+		}
 		var err error
-		if base, err = r.ResolveBase(""); err != nil {
+		if mb, err = r.mergeBase(base); err != nil {
 			return nil, err
 		}
-	}
-	mb, err := r.mergeBase(base)
-	if err != nil {
-		return nil, err
+	} else {
+		// A repository with no commits has no base branch to resolve. Compare
+		// the empty tree instead, so a project's very first files show up
+		// rather than an error about branches.
+		var err error
+		if mb, err = r.emptyTree(); err != nil {
+			return nil, err
+		}
 	}
 
 	raw, err := gitOut(r.Root, "-c", "core.quotepath=false", "diff",
@@ -130,6 +141,20 @@ func (r *Repo) Load(opts Options) (*patch.ChangeSet, error) {
 		Files:     files,
 	}, nil
 }
+
+// emptyTree writes and returns the empty tree object of this repository's hash
+// algorithm, which is the correct "before" side for an unborn branch.
+func (r *Repo) emptyTree() (string, error) {
+	out, err := git(r.Root, "hash-object", "-w", "-t", "tree", os.DevNull)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(out), nil
+}
+
+// MergeBase is the fork point drift compares the working tree against. It is
+// exported so `drift config` can show where the diff actually comes from.
+func (r *Repo) MergeBase(base string) (string, error) { return r.mergeBase(base) }
 
 func (r *Repo) mergeBase(base string) (string, error) {
 	mb, err := git(r.Root, "merge-base", base, "HEAD")

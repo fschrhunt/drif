@@ -100,7 +100,7 @@ func fileRows(f *patch.File, mode Mode) []Row {
 	gutter := gutterWidth(f)
 	rows := []Row{{Kind: FileRow, File: f, Gutter: gutter}}
 
-	for _, meta := range metaText(f) {
+	for _, meta := range MetaLines(f) {
 		rows = append(rows, Row{Kind: MetaRow, File: f, Text: meta, Gutter: gutter})
 	}
 	if f.Binary || len(f.Hunks) == 0 {
@@ -260,7 +260,10 @@ func HunkHeader(h *patch.Hunk) string {
 	return s
 }
 
-func metaText(f *patch.File) []string {
+// MetaLines describes what changed about a file beyond its text: a rename, a
+// mode change, a binary body. Both the styled renderers and the plain output
+// use it, so an agent sees the same facts a person does.
+func MetaLines(f *patch.File) []string {
 	var out []string
 	switch f.Status {
 	case patch.Renamed:

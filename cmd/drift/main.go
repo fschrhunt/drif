@@ -421,6 +421,20 @@ func showConfig(configPath string, stdout, stderr io.Writer) int {
 		source += " (missing, using defaults)"
 	}
 	fmt.Fprintf(stdout, "config  %s\n", source)
+	// Show the resolution, not just the setting: "which revision am I looking
+	// at" is the question drift exists to answer.
+	if repo, err := git.Discover(); err == nil {
+		if base, err := repo.ResolveBase(cfg.Base); err == nil {
+			line := "base    " + base
+			if mb, err := repo.MergeBase(base); err == nil {
+				if len(mb) > 7 {
+					mb = mb[:7]
+				}
+				line += " → " + mb
+			}
+			fmt.Fprintln(stdout, line)
+		}
+	}
 	fmt.Fprintf(stdout, "theme   %s → %s background\n", cfg.Theme, backgroundName(palette))
 	fmt.Fprintf(stdout, "layout  %s\n", cfg.Layout)
 	fmt.Fprintf(stdout, "context %d\n", cfg.Context)

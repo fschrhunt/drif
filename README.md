@@ -37,6 +37,25 @@ ln -sf drift "$(go env GOPATH)/bin/git-drift"
 
 The `git-drift` link is what makes `git drift` work; git looks up `git-<name>` on `PATH`.
 
+## Try it on awkward diffs
+
+`scripts/demo.sh` builds a throwaway repository with the cases that break diff viewers: a rename, a
+binary, a mode-only change, a symlink, a deleted file, CRLF, non-ASCII and space-containing paths, a
+4000-line file and an untracked binary.
+
+```sh
+scripts/demo.sh
+cd /tmp/drift-demo && drift
+```
+
+`drift config` in any repository prints the revision being compared, which is the quickest way to
+check you are looking at what you think you are:
+
+```
+config  ~/.config/drift/config.toml
+base    origin/main → 061321a
+```
+
 ## Usage
 
 ```

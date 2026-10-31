@@ -7,7 +7,8 @@
 - `./x --help` lists targets; `./x test` and `./x build` forward Go arguments.
 - `go build -o drift ./cmd/drift` builds the binary (Go 1.26 or newer).
 - `go test ./...` runs the offline suites. The git tests create throwaway repositories in
-  `t.TempDir()`; nothing touches a real repository.
+  `t.TempDir()`; nothing touches a real repository. `internal/git/real_test.go` runs the real git
+  binary and parses its real output — keep it that way, because the bugs live in that seam.
 - `gofmt -l .` must print nothing.
 
 ## Code map
@@ -25,6 +26,9 @@
 - `internal/highlight/`: Chroma lexing per file, trimmed to the lines a diff shows, cached.
 - `internal/render/`: palette detection, ANSI encoding, width maths, plain text, list output, JSON.
 - `internal/tui/`: the bubbletea model and the fsnotify watcher behind `--watch`.
+- `scripts/demo.sh`: builds a repository of awkward changes (rename, binary, mode-only, symlink,
+  CRLF, non-ASCII paths, unborn HEAD) for looking at by hand. The same cases are pinned in
+  `internal/git/real_test.go`.
 - `test/`: no directory yet; parser fixtures live beside the parser they exercise.
 
 ## Conventions

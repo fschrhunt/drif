@@ -15,6 +15,9 @@ func PlainLines(cs *patch.ChangeSet, prefix string) []string {
 	out := make([]string, 0, len(cs.Files)*8)
 	for _, f := range cs.Files {
 		out = append(out, plainFile(f, prefix))
+		for _, meta := range layout.MetaLines(f) {
+			out = append(out, "  "+meta)
+		}
 		for _, h := range f.Hunks {
 			out = append(out, " "+layout.HunkHeader(&h))
 			for _, l := range h.Lines {

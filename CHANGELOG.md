@@ -21,6 +21,11 @@
   can be a single colour. `drift theme` lists them and `drift theme NAME` prints one as a file to
   copy.
 - Every key is rebindable in `[keys]`, with conflicts reported instead of silently resolved.
+- Repositories with no commits yet are compared against the empty tree, so a brand new project
+  shows its first files instead of asking for a base branch.
+- Plain `diff -u` output (not just git's) can be piped in.
+- Deleted files no longer report a new path, and the plain output now carries the rename, mode and
+  binary notes the interactive view already showed.
 - `.drift.toml` at the repository root, declaring only `base`. A repository may say what to compare
   against, not how the diff is painted; `drift init --repo` writes one.
 - A command line inside the viewer: `:theme`, `:layout`, `:numbers`, `:reload`, `:q`. `R` re-reads

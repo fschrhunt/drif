@@ -271,12 +271,36 @@ func (p *parser) endHunk() {
 func (p *parser) flush() {
 	p.endHunk()
 	if p.cur != nil {
+		// Git reports a file becoming a symlink (or a submodule) as a type
+		// change; a permission change is still an ordinary modification with a
+		// note attached.
+		if p.cur.Status == Modified &&
+			len(p.cur.OldMode) == 6 && len(p.cur.NewMode) == 6 &&
+			p.cur.OldMode[:3] != p.cur.NewMode[:3] {
+			p.cur.Status = TypeChanged
+		}
+		// Without mode lines, as in `diff -u`, the /dev/null side is the only
+		// signal that a file appeared or vanished.
+		switch {
+		case p.cur.OldPath == "" && p.cur.NewPath != "":
+			p.cur.Status = Added
+		case p.cur.NewPath == "" && p.cur.OldPath != "":
+			p.cur.Status = Deleted
+		}
 		p.files = append(p.files, p.cur)
 		p.cur = nil
 	}
 }
 
 func (p *parser) header(line string) {
+	// A patch from plain `diff -u` has no "diff --git" line, so its "---" is
+	// what starts a file. A second one after a file that already has hunks
+	// starts the next file.
+	if strings.HasPrefix(line, "--- ") && (p.cur == nil || len(p.cur.Hunks) > 0) {
+		p.flush()
+		p.cur = &File{}
+	}
+
 	switch {
 	case strings.HasPrefix(line, "diff --git "):
 		p.flush()
@@ -325,14 +349,13 @@ func (p *parser) header(line string) {
 		p.skipBinary = true
 
 	case strings.HasPrefix(line, "--- "):
-		if path := diffPath(line[len("--- "):]); path != "" {
-			p.cur.OldPath = path
-		}
+		// /dev/null decodes to "", which is meaningful: it clears the path the
+		// diff header guessed, and that is how a deleted file stops claiming
+		// to have a new name.
+		p.cur.OldPath = diffPath(line[len("--- "):])
 
 	case strings.HasPrefix(line, "+++ "):
-		if path := diffPath(line[len("+++ "):]); path != "" {
-			p.cur.NewPath = path
-		}
+		p.cur.NewPath = diffPath(line[len("+++ "):])
 
 	case strings.HasPrefix(line, "@@ "):
 		if h, ok := parseHunkHeader(line); ok {
