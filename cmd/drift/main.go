@@ -74,37 +74,54 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 		return 0
 	}
 
-	active, _, err := config.Load(*configPath)
-	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
-		return 2
-	}
-	// Flags win over the file, but only when they were actually given; a flag
-	// left at its default must not overwrite a value the user configured.
+	// Flags win over every file, but only when they were actually given; a
+	// flag left at its default must not overwrite a configured value.
 	set := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
-	if set["base"] {
-		active.Base = *base
+
+	// The repository may be absent: a patch can arrive on stdin outside one.
+	repo, _ := git.Discover()
+
+	// resolve is the single precedence path — user config, then the
+	// repository's base, then flags — used at startup and again on reload.
+	resolve := func() (*config.Config, error) {
+		c, _, err := config.Load(*configPath)
+		if err != nil {
+			return nil, err
+		}
+		if repo != nil {
+			rc, _, err := config.LoadRepo(repo.Root)
+			if err != nil {
+				return nil, err
+			}
+			c.MergeRepo(rc)
+		}
+		if set["base"] {
+			c.Base = *base
+		}
+		if set["context"] {
+			c.Context = *context
+		}
+		if set["no-untracked"] {
+			c.Untracked = !*noUntracked
+		}
+		if set["theme"] {
+			c.Theme = *themeName
+		}
+		if set["layout"] {
+			c.Layout = *layoutName
+		}
+		if set["no-numbers"] {
+			c.Numbers = !*noNumbers
+		}
+		if set["watch"] {
+			c.Watch = *watch
+		}
+		return c, c.Validate()
 	}
-	if set["context"] {
-		active.Context = *context
-	}
-	if set["no-untracked"] {
-		active.Untracked = !*noUntracked
-	}
-	if set["theme"] {
-		active.Theme = *themeName
-	}
-	if set["layout"] {
-		active.Layout = *layoutName
-	}
-	if set["no-numbers"] {
-		active.Numbers = !*noNumbers
-	}
-	if set["watch"] {
-		active.Watch = *watch
-	}
-	if err := active.Validate(); err != nil {
+
+	active, err := resolve()
+	if err != nil {
 		fmt.Fprintf(stderr, "drift: %v\n", err)
 		return 2
 	}
@@ -112,7 +129,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 	stdinTTY := isatty.IsTerminal(stdin.Fd()) || isatty.IsCygwinTerminal(stdin.Fd())
 	stdoutTTY := isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
 
-	cs, repo, err := load(active.Base, active.Context, active.Untracked, stdin, stdinTTY)
+	cs, err := load(repo, active.Base, active.Context, active.Untracked, stdin, stdinTTY)
 	if err != nil {
 		fmt.Fprintf(stderr, "drift: %v\n", err)
 		return 2
@@ -142,7 +159,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 		}
 		interactive := stdoutTTY && !*plain && (stdinTTY || *forceTUI)
 		if interactive {
-			if code := runTUI(cs, active, *configPath, repo, stdinTTY, stderr); code != 0 {
+			if code := runTUI(cs, active, resolve, repo, stdinTTY, stderr); code != 0 {
 				return code
 			}
 		} else {
@@ -161,34 +178,37 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 // load builds the change set either from a piped patch or from the repository
 // containing the working directory. An empty stdin falls back to the
 // repository, because a non-tty stdin is also what CI and cron give you.
-func load(base string, context int, untracked bool, stdin *os.File, stdinTTY bool) (*patch.ChangeSet, *git.Repo, error) {
+func load(repo *git.Repo, base string, context int, untracked bool, stdin *os.File, stdinTTY bool) (*patch.ChangeSet, error) {
 	if !stdinTTY {
 		data, err := io.ReadAll(stdin)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if len(bytes.TrimSpace(data)) > 0 {
 			files, err := patch.Parse(bytes.NewReader(data))
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
-			return &patch.ChangeSet{Files: files}, nil, nil
+			return &patch.ChangeSet{Files: files}, nil
 		}
 	}
-	repo, err := git.Discover()
-	if err != nil {
-		return nil, nil, err
+	if repo == nil {
+		r, err := git.Discover()
+		if err != nil {
+			return nil, err
+		}
+		repo = r
 	}
 	cs, err := repo.Load(git.Options{Base: base, Context: context, Untracked: untracked})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return cs, repo, nil
+	return cs, nil
 }
 
 // runTUI starts the interactive view. The config is re-read on demand so a
 // theme can be edited in one window and seen in another.
-func runTUI(cs *patch.ChangeSet, cfg *config.Config, configPath string, repo *git.Repo, stdinTTY bool, stderr io.Writer) int {
+func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Config, error), repo *git.Repo, stdinTTY bool, stderr io.Writer) int {
 	active := cfg
 
 	keymap, err := active.KeyMap()
@@ -208,12 +228,9 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, configPath string, repo *gi
 	}
 
 	refresh := func() (*tui.Refresh, error) {
-		next, _, err := config.Load(configPath)
+		next, err := resolve()
 		if err != nil {
 			return nil, err
-		}
-		if next.Base == "" {
-			next.Base = cfg.Base
 		}
 		pal, err := theme.Resolve(next.Theme, next.Colors)
 		if err != nil {
@@ -228,7 +245,7 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, configPath string, repo *gi
 		return &tui.Refresh{Palette: pal, Bind: km, Mode: mode, Auto: auto, Numbers: next.Numbers}, nil
 	}
 
-	resolve := func(name string) (*render.Palette, error) {
+	themeFor := func(name string) (*render.Palette, error) {
 		return theme.Resolve(name, active.Colors)
 	}
 
@@ -251,7 +268,7 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, configPath string, repo *gi
 			return next, nil
 		},
 		Refresh: refresh,
-		Theme:   resolve,
+		Theme:   themeFor,
 	}
 	if _, err := tea.NewProgram(tui.New(cs, opts), programOptions(stdinTTY)...).Run(); err != nil {
 		fmt.Fprintf(stderr, "drift: %v\n", err)
@@ -323,6 +340,7 @@ func command(name string, args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("drift "+name, flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	configPath := fs.String("config", "", "config file")
+	repoFile := fs.Bool("repo", false, "write .drift.toml in the repository instead")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -332,7 +350,7 @@ func command(name string, args []string, stdout, stderr io.Writer) int {
 
 	switch name {
 	case "init":
-		return initConfig(*configPath, stdout, stderr)
+		return initConfig(*configPath, *repoFile, stdout, stderr)
 	case "config":
 		return showConfig(*configPath, stdout, stderr)
 	case "theme":
@@ -341,7 +359,26 @@ func command(name string, args []string, stdout, stderr io.Writer) int {
 	return 2
 }
 
-func initConfig(configPath string, stdout, stderr io.Writer) int {
+func initConfig(configPath string, repoFile bool, stdout, stderr io.Writer) int {
+	if repoFile {
+		repo, err := git.Discover()
+		if err != nil {
+			fmt.Fprintf(stderr, "drift: %v\n", err)
+			return 2
+		}
+		path := filepath.Join(repo.Root, config.RepoFileName)
+		if _, err := os.Stat(path); err == nil {
+			fmt.Fprintf(stderr, "drift: %s already exists; edit it instead\n", path)
+			return 1
+		}
+		if err := os.WriteFile(path, []byte(config.RepoTemplate()), 0o644); err != nil {
+			fmt.Fprintf(stderr, "drift: %v\n", err)
+			return 2
+		}
+		fmt.Fprintf(stdout, "wrote %s\n", path)
+		return 0
+	}
+
 	path, err := paths.ConfigFile(configPath)
 	if err != nil {
 		fmt.Fprintf(stderr, "drift: %v\n", err)
@@ -393,6 +430,22 @@ func showConfig(configPath string, stdout, stderr io.Writer) int {
 	if cfg.Base != "" {
 		fmt.Fprintf(stdout, "base    %s\n", cfg.Base)
 	}
+	if repo, err := git.Discover(); err == nil {
+		rc, repoPath, err := config.LoadRepo(repo.Root)
+		if err != nil {
+			fmt.Fprintf(stderr, "drift: %v\n", err)
+			return 2
+		}
+		switch {
+		case repoPath == "":
+			fmt.Fprintln(stdout, "repo    none")
+		case rc.Base != "":
+			fmt.Fprintf(stdout, "repo    %s (base = %s)\n", repoPath, rc.Base)
+		default:
+			fmt.Fprintf(stdout, "repo    %s\n", repoPath)
+		}
+	}
+
 	names, _ := theme.List()
 	fmt.Fprintf(stdout, "themes  %s\n", strings.Join(names, ", "))
 
@@ -508,7 +561,7 @@ usage:
   drift --json             machine-readable change set
   drift config             show the effective configuration
   drift theme [name]       list themes, or print one as a theme file
-  drift init               write a commented starter config
+  drift init [--repo]      write a starter config (--repo: .drift.toml)
 
 flags:
   --config PATH       configuration file

@@ -114,3 +114,66 @@ func TestTemplateParses(t *testing.T) {
 		t.Errorf("template set keys: %v", cfg.Keys)
 	}
 }
+
+func writeRepoFile(t *testing.T, body string) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, RepoFileName), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func TestRepoConfigDeclaresBase(t *testing.T) {
+	root := writeRepoFile(t, "base = \"develop\"\n")
+	r, path, err := LoadRepo(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Base != "develop" {
+		t.Errorf("base = %q", r.Base)
+	}
+	if filepath.Base(path) != RepoFileName {
+		t.Errorf("path = %q", path)
+	}
+}
+
+func TestRepoConfigRejectsPersonalSettings(t *testing.T) {
+	root := writeRepoFile(t, "theme = \"solarized\"\n")
+	_, _, err := LoadRepo(root)
+	if err == nil || !strings.Contains(err.Error(), "personal preference") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestRepoConfigRejectsUnknownKeys(t *testing.T) {
+	root := writeRepoFile(t, "bsae = \"main\"\n")
+	_, _, err := LoadRepo(root)
+	if err == nil || !strings.Contains(err.Error(), `unknown key "bsae"`) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestMissingRepoConfigIsFine(t *testing.T) {
+	r, path, err := LoadRepo(t.TempDir())
+	if err != nil || path != "" || r.Base != "" {
+		t.Fatalf("r=%+v path=%q err=%v", r, path, err)
+	}
+}
+
+func TestUserBaseOutranksRepoBase(t *testing.T) {
+	repo := &Repo{Base: "develop"}
+
+	cfg := Default()
+	cfg.MergeRepo(repo)
+	if cfg.Base != "develop" {
+		t.Errorf("empty config should take the repo base, got %q", cfg.Base)
+	}
+
+	cfg = Default()
+	cfg.Base = "origin/main"
+	cfg.MergeRepo(repo)
+	if cfg.Base != "origin/main" {
+		t.Errorf("user base should win, got %q", cfg.Base)
+	}
+}

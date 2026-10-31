@@ -32,6 +32,10 @@
 Use the fewest moving parts. drift shells out to git and parses its output; do not grow a second
 implementation of history, renames or whitespace rules.
 
+Repository-level config (`.drift.toml`) may only declare what to compare against. Before adding a
+setting there, ask whether it changes what is compared or how it looks; the second kind belongs in
+the user config, because a repository must not be able to change how it is reviewed.
+
 Adding an action means three edits that must stay in step: the constant and `All` in
 `internal/keys`, a case in the TUI's key switch, and a row in `helpRows`. A binding that does
 nothing is the easiest bug to ship here.

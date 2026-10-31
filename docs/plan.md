@@ -177,6 +177,12 @@ the unstable part. Replacing an action's list replaces all of its keys, which is
 `down = ["n"]` reads as. `keys.Map` keeps both directions so help can print bindings in the order
 they were written.
 
+A repository may also carry `.drift.toml` at its root, and it may declare exactly one
+thing: `base`. That is the setting that belongs to a project rather than a person, and the only one
+where "which branch does this fork from" is a shared fact. Everything else is refused by name,
+with an error that says so, because the interesting failure mode of a review tool is a repository
+that controls how it is reviewed. Precedence is defaults, repository, user, flags.
+
 The command line exists so the loop is edit, look, edit. `R` re-reads the config file and rebuilds
 the view in place; `:theme` re-resolves one theme without touching the file. That is the whole
 reason configuration is worth having in an interactive tool: the feedback is immediate.
@@ -191,7 +197,7 @@ reason configuration is worth having in an interactive tool: the feedback is imm
    necessarily the revision that produced a piped patch, and colouring from the wrong file is
    worse than no colour.
 4. Inline image diffs through the kitty/iTerm graphics protocol.
-5. A project-local `.drift.toml`. Deliberately absent for now: a repository should not be able to
-   change how reviewing it feels, and the global file covers the real cases.
+5. Whether `.drift.toml` should grow an `ignore` list for generated paths. It fits the same rule —
+   narrowing what is compared, not how it is shown — but is not implemented.
 6. Whether themes should be able to override the *structure* (gutters, separators), which is
    currently fixed so every theme keeps the same geometry.

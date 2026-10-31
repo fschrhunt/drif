@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -187,4 +188,74 @@ watch = false
 # keyword = "#ff7b72"
 # string = "#a5d6ff"
 `
+}
+
+// RepoFileName is the repository-level config, and it lives only at the
+// repository root. Nesting it per directory would make "which file won" a
+// question nobody wants to ask while reading a diff.
+const RepoFileName = ".drift.toml"
+
+// Repo is what a repository is allowed to declare: what to compare against.
+//
+// Not how to compare it. Themes, colours, keys, layout and context are personal
+// preferences and stay in the user config, because a review tool whose
+// presenter can be set by the thing being reviewed is a review tool that can be
+// made to lie.
+type Repo struct {
+	Base string `toml:"base"`
+}
+
+// personal names the settings that are rejected in a repository file, so the
+// error can explain why instead of calling a familiar word "unknown".
+var personal = map[string]bool{
+	"theme": true, "colors": true, "keys": true, "layout": true,
+	"numbers": true, "context": true, "untracked": true, "watch": true,
+}
+
+// LoadRepo reads <root>/.drift.toml. A missing file is not an error.
+func LoadRepo(root string) (*Repo, string, error) {
+	path := filepath.Join(root, RepoFileName)
+	var r Repo
+	if _, err := os.Stat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &r, "", nil
+		}
+		return nil, path, err
+	}
+	md, err := toml.DecodeFile(path, &r)
+	if err != nil {
+		return nil, path, err
+	}
+	for _, key := range md.Undecoded() {
+		name := key.String()
+		if personal[name] {
+			return nil, path, fmt.Errorf(
+				"%s: %s is a personal preference, not a repository setting; move it to your user config",
+				path, name)
+		}
+		return nil, path, fmt.Errorf("%s: unknown key %q", path, name)
+	}
+	return &r, path, nil
+}
+
+// RepoTemplate is the file `drift init --repo` writes.
+func RepoTemplate() string {
+	return `# Repository settings for drift.
+#
+# A repository may say what to compare against. It may not say how the diff is
+# painted: themes, colours, keys and layout are personal and belong in
+# ~/.config/drift/config.toml.
+
+# The revision the working tree is compared against. When this is unset drift
+# uses origin/HEAD, then main, then master.
+# base = "main"
+`
+}
+
+// MergeRepo takes the repository's base, but only when the user has not
+// already chosen one. A personal setting always outranks a repository's.
+func (c *Config) MergeRepo(r *Repo) {
+	if c.Base == "" && r != nil && r.Base != "" {
+		c.Base = r.Base
+	}
 }

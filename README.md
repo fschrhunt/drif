@@ -89,6 +89,24 @@ add_bg = "#10241a"
 
 Flags override the file, and only when you actually pass them.
 
+### Per repository
+
+One setting genuinely belongs to the project rather than to you: which branch it
+branches from. Put a `.drift.toml` at the repository root and everyone who
+clones it compares against the right place.
+
+```toml
+base = "develop"
+```
+
+`drift init --repo` writes one. That is the entire schema, on purpose: a
+repository may say **what** to compare against, never **how** the diff is
+painted. Themes, colours, keys, layout and context are rejected there with an
+error, because a review tool whose presenter can be set by the thing being
+reviewed is a review tool that can be made to lie.
+
+Your own `base` still wins over the repository's, and `--base` wins over both.
+
 ## Themes
 
 Two palettes ship and drift picks between them by asking your terminal for its background — there

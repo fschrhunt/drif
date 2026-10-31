@@ -21,5 +21,7 @@
   can be a single colour. `drift theme` lists them and `drift theme NAME` prints one as a file to
   copy.
 - Every key is rebindable in `[keys]`, with conflicts reported instead of silently resolved.
+- `.drift.toml` at the repository root, declaring only `base`. A repository may say what to compare
+  against, not how the diff is painted; `drift init --repo` writes one.
 - A command line inside the viewer: `:theme`, `:layout`, `:numbers`, `:reload`, `:q`. `R` re-reads
   the config from disk, so a theme can be edited and seen without restarting.
