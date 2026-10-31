@@ -32,6 +32,16 @@ git produced it.
 This is a display guarantee, not a sandbox. Piping drif's output somewhere that
 reinterprets it is outside its control.
 
+## Releases
+
+Release artifacts are built by Actions from the tagged commit on `main`, carry a
+build provenance attestation, and are published with checksums. Branch
+protection, a protected set of release tags, and an environment-scoped release
+token bound to `main` and `v*` keep publishing to people with write access.
+See [docs/releasing.md](docs/releasing.md#who-can-release) for what that does and
+does not stop, including the one gap that matters: a compromised maintainer
+account.
+
 ## Configuration
 
 Config and theme files are TOML values: no scripts, no includes, no code.

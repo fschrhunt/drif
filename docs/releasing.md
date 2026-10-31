@@ -72,3 +72,39 @@ gh api --method POST repos/fschrhunt/drif/rulesets \
 It requires a status check named `Required`, which `.github/workflows/ci.yml`
 aggregates from the Linux and macOS jobs. If that job is ever renamed, change the
 workflow and the ruleset together.
+
+## Who can release
+
+A release needs **write access to this repository**. Today that is one account;
+there is no separate releaser role.
+
+- Pushing a `v*` tag needs write access and starts the release workflow.
+- `scripts/release.sh` dispatches the same workflow, which also needs write
+  access.
+- Nobody can release code that is not on `main`: the tag job checks that the
+  tagged commit is an ancestor of `origin/main`, and that `CHANGELOG.md` names
+  the version.
+- Nobody can release untested code: the same job runs `./x check` on the tag.
+
+What limits the damage if an account or a token is compromised:
+
+| Guard | What it stops |
+| --- | --- |
+| Branch protection on `main` | unreviewed commits, force-pushes, deleting the branch |
+| The `Required` check | merging without Linux and macOS passing |
+| Protected release tags | deleting or moving a published version |
+| The `release` environment policy | reading `RELEASE_TOKEN` from a workflow on any ref other than `main` or `v*` |
+| A fine-grained token | reaching other repositories, or repository settings, with the release token |
+| Build provenance | publishing an artifact that does not match the tag |
+
+What is not guarded, stated plainly:
+
+- **A compromised maintainer account is a compromised release.** The ruleset
+  lets a repository admin bypass through a pull request, and an admin can edit
+  the workflows. Protect the account, not only the repository.
+- **There is no second pair of eyes.** `required_approving_review_count` is 0,
+  so "reviewed" means the author merged their own PR after CI.
+- **Anyone with write access can run any workflow**, including one that asks for
+  the `release` environment. Today that is one account. If collaborators are
+  added, put required reviewers on the environment and add a `creation` rule to
+  the tag ruleset.
