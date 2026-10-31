@@ -36,10 +36,14 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          push=$(gh api "repos/$GH_REPO" --jq '.permissions.push' 2>/dev/null || true)
+          if ! push=$(gh api "repos/$GH_REPO" --jq '.permissions.push' 2>&1); then
+            echo "RELEASE_TOKEN is not accepted for $GH_REPO:" >&2
+            echo "  $push" >&2
+            echo "Recreate it as a fine-grained token with Contents: read and write, then re-set the secret." >&2
+            exit 1
+          fi
           if [ "$push" != 'true' ]; then
-            echo "RELEASE_TOKEN cannot write to $GH_REPO." >&2
-            echo "Create a fine-grained token for this repository with Contents: read and write." >&2
+            echo "RELEASE_TOKEN can read $GH_REPO but not write to it (permissions.push=$push)." >&2
             exit 1
           fi
       - name: Validate release and push its tag
