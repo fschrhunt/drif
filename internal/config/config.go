@@ -178,15 +178,12 @@ watch = false
 # next_file = ["tab", "]"]
 # cycle_layout = ["s"]
 
-# Override any colour from the active theme. Colours are #rrggbb.
+# Override any colour from the active theme. Colours are #rrggbb. The palette is
+# monochrome apart from additions and deletions.
 #
 # [colors]
 # add_bg = "#10241a"
 # del_bg = "#2a1417"
-#
-# [colors.syntax]
-# keyword = "#ff7b72"
-# string = "#a5d6ff"
 `
 }
 

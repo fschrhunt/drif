@@ -210,16 +210,6 @@ func isBinary(content []byte) bool {
 	return bytes.IndexByte(content, 0) >= 0
 }
 
-// Content returns the text a file had on the given revision, for highlighting
-// files that no longer exist on disk.
-func (r *Repo) Content(rev, path string) ([]byte, error) {
-	out, err := gitOut(r.Root, rev+":"+path)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ReadWorkingTree returns the file's current contents.
 func (r *Repo) ReadWorkingTree(path string) ([]byte, error) {
 	return os.ReadFile(filepath.Join(r.Root, path))

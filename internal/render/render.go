@@ -8,7 +8,6 @@ import (
 	"github.com/mattn/go-runewidth"
 
 	"github.com/fschrhunt/drif/internal/expand"
-	"github.com/fschrhunt/drif/internal/highlight"
 	"github.com/fschrhunt/drif/internal/layout"
 	"github.com/fschrhunt/drif/internal/patch"
 )
@@ -19,7 +18,6 @@ type Renderer struct {
 	Width   int
 	Mode    layout.Mode
 	Depth   Depth
-	Cache   *highlight.Cache
 	Prefix  string
 	Numbers bool
 	// Query, when set, is highlighted in every rendered line.
@@ -49,6 +47,15 @@ func (r *Renderer) Line(row layout.Row) string {
 	return ANSI(Fit(r.Segments(row), r.Width, r.Fill(row)), r.Depth)
 }
 
+// Lines renders every row.
+func (r *Renderer) Lines(rows []layout.Row) []string {
+	out := make([]string, len(rows))
+	for i, row := range rows {
+		out[i] = r.Line(row)
+	}
+	return out
+}
+
 // Fill is the style that extends a row to the full width.
 func (r *Renderer) Fill(row layout.Row) Style {
 	if row.Kind != layout.LineRow || r.Mode == layout.Split {
@@ -57,18 +64,14 @@ func (r *Renderer) Fill(row layout.Row) Style {
 	return r.baseStyle(row.Sign)
 }
 
-// Height is how many visual lines a row occupies at the current width. It is
-// computed from plain text so scrolling can be laid out without highlighting
-// every file first.
+// Height is how many visual lines a row occupies at the current width.
 func (r *Renderer) Height(row layout.Row) int {
 	if r.Width <= 0 || r.Mode == layout.Split {
 		return 1
 	}
 	var w int
 	switch row.Kind {
-	case layout.FileRow:
-		w = len(row.File.Path()) + 12
-	case layout.MetaRow, layout.HunkRow:
+	case layout.FileRow, layout.MetaRow, layout.HunkRow:
 		w = runewidth.StringWidth(row.Text) + 2
 	default:
 		w = runewidth.StringWidth(row.Text) + row.Gutter + 2
@@ -80,15 +83,6 @@ func (r *Renderer) Height(row layout.Row) int {
 		return 1
 	}
 	return (w + r.Width - 1) / r.Width
-}
-
-// Lines renders every row.
-func (r *Renderer) Lines(rows []layout.Row) []string {
-	out := make([]string, len(rows))
-	for i, row := range rows {
-		out[i] = r.Line(row)
-	}
-	return out
 }
 
 func (r *Renderer) fileSegs(f *patch.File) []Seg {
@@ -105,7 +99,7 @@ func (r *Renderer) fileSegs(f *patch.File) []Seg {
 	}
 	left = append(left, Seg{Text: base, Style: Style{Fg: r.Pal.FileFg, Bg: r.Pal.FileBg, Bold: true}})
 	if f.Status != patch.Modified {
-		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.Accent, Bg: r.Pal.FileBg, Bold: true}})
+		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.FileFg, Bg: r.Pal.FileBg, Bold: true}})
 	}
 
 	right := make([]Seg, 0, 4)
@@ -174,8 +168,7 @@ func (r *Renderer) unifiedSegs(row layout.Row) []Seg {
 	segs = append(segs, Seg{Text: string(row.Sign), Style: r.signStyle(row.Sign)})
 	segs = append(segs, Seg{Text: " ", Style: base})
 
-	old := row.Sign == '-'
-	segs = append(segs, r.textSegs(row.File, old, row.No, row.Text, row.Emph, base)...)
+	segs = append(segs, r.compose(row.Text, row.Emph, base, r.emphStyle(row.Sign))...)
 
 	// Deliberately unpadded: the caller decides whether to wrap or to fit, so
 	// the TUI and the pager can share one segment stream.
@@ -234,41 +227,27 @@ func (r *Renderer) cellSegs(f *patch.File, c *layout.Cell, old bool, w, gutter i
 	segs = append(segs, Seg{Text: " ", Style: base})
 	gw += 2
 
-	textW := w - gw
-	if textW < 0 {
-		textW = 0
-	}
-	segs = append(segs, r.textSegs(f, old, c.No, c.Text, c.Emph, base)...)
+	segs = append(segs, r.compose(c.Text, c.Emph, base, r.emphStyle(signOf(c.Kind)))...)
 	return Fit(segs, w, base)
 }
 
-func (r *Renderer) textSegs(f *patch.File, old bool, no int, text string, emph []layout.Span, base Style) []Seg {
-	var syn []highlight.Span
-	if r.Cache != nil && no > 0 {
-		if table := r.Cache.Table(f, old); table != nil && no-1 < len(table) {
-			syn = table[no-1]
-		}
+// emphStyle is the background used for the words that actually changed inside
+// a changed line.
+func (r *Renderer) emphStyle(sign byte) Color {
+	if sign == '-' {
+		return r.Pal.DelEmphBg
 	}
-	emphBg := r.Pal.AddEmphBg
-	if old {
-		emphBg = r.Pal.DelEmphBg
-	}
-	return r.compose(text, syn, emph, base, emphBg)
+	return r.Pal.AddEmphBg
 }
 
-// compose overlays syntax colour and intra-line emphasis on a line in one
-// pass over the union of their boundaries.
-func (r *Renderer) compose(text string, syn []highlight.Span, emph []layout.Span, base Style, emphBg Color) []Seg {
+// compose applies intra-line emphasis and the search highlight to a line that
+// is otherwise a single colour.
+func (r *Renderer) compose(text string, emph []layout.Span, base Style, emphBg Color) []Seg {
 	if text == "" {
 		return nil
 	}
-	cuts := make([]int, 0, 2+2*(len(syn)+len(emph)))
+	cuts := make([]int, 0, 2+2*len(emph))
 	cuts = append(cuts, 0, len(text))
-	for _, s := range syn {
-		if s.Start >= 0 && s.End <= len(text) && s.Start < s.End {
-			cuts = append(cuts, s.Start, s.End)
-		}
-	}
 	for _, s := range emph {
 		if s.Start >= 0 && s.End <= len(text) && s.Start < s.End {
 			cuts = append(cuts, s.Start, s.End)
@@ -281,21 +260,13 @@ func (r *Renderer) compose(text string, syn []highlight.Span, emph []layout.Span
 	sort.Ints(cuts)
 
 	out := make([]Seg, 0, len(cuts))
-	si, ei, mi := 0, 0, 0
+	ei, mi := 0, 0
 	for i := 0; i+1 < len(cuts); i++ {
 		a, b := cuts[i], cuts[i+1]
 		if a == b {
 			continue
 		}
 		style := base
-		for si < len(syn) && syn[si].End <= a {
-			si++
-		}
-		if si < len(syn) && syn[si].Start <= a && syn[si].Class != highlight.Text {
-			if c := r.Pal.Syntax[syn[si].Class]; c.Set {
-				style.Fg = c
-			}
-		}
 		for ei < len(emph) && emph[ei].End <= a {
 			ei++
 		}

@@ -5,8 +5,9 @@
 - First version. Run `drif` in a worktree to review everything changed since the merge base with
   the base branch, including untracked files.
 - Three layouts: side-by-side comparison, unified, and result-only. One key cycles them.
-- Syntax highlighting tokenises the file rather than the hunk, so multi-line constructs stay
-  correct, and fills in after the first paint instead of blocking it.
+- A monochrome palette: only additions and deletions carry colour. The file header is pinned to the
+  top and follows the file you are reading; there is no status line unless you are searching,
+  typing a command, or reading an error.
 - Word-level emphasis inside changed line pairs, so a one-character edit reads as a one-character
   edit.
 - `drif --list`, `drif --file PATH` and `drif --json` give scripts and agents a cheap index and

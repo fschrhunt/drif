@@ -18,7 +18,6 @@ import (
 
 	"github.com/fschrhunt/drif/internal/config"
 	"github.com/fschrhunt/drif/internal/git"
-	"github.com/fschrhunt/drif/internal/highlight"
 	"github.com/fschrhunt/drif/internal/keys"
 	"github.com/fschrhunt/drif/internal/layout"
 	"github.com/fschrhunt/drif/internal/patch"
@@ -222,11 +221,6 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Con
 		return 2
 	}
 
-	var cache *highlight.Cache
-	if repo != nil {
-		cache = highlight.New(repo, cs.MergeBase)
-	}
-
 	refresh := func() (*tui.Refresh, error) {
 		next, err := resolve()
 		if err != nil {
@@ -258,7 +252,6 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Con
 		Palette: palette,
 		Bind:    keymap,
 		Repo:    repo,
-		Cache:   cache,
 		Watch:   active.Watch,
 		Reload: func() (*patch.ChangeSet, error) {
 			next, err := repo.Load(git.Options{Base: active.Base, Context: active.Context, Untracked: active.Untracked})

@@ -23,7 +23,6 @@
 - `internal/patch/`: the unified-diff parser and the change model. Deliberately lenient; the
   parser tests enumerate every awkward shape git can emit.
 - `internal/layout/`: rows, split pairing, word-level emphasis. Width-independent by design.
-- `internal/highlight/`: Chroma lexing per file, trimmed to the lines a diff shows, cached.
 - `internal/render/`: palette detection, ANSI encoding, width maths, plain text, list output, JSON.
 - `internal/tui/`: the bubbletea model and the fsnotify watcher behind `--watch`.
 - `install.sh`: downloads a release, checks it against `checksums.txt`, and links `git-drif`.

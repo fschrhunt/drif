@@ -53,12 +53,3 @@ func TestExpandKeepsTextAndWidth(t *testing.T) {
 		t.Fatalf("width changed: %q", got)
 	}
 }
-
-func TestBytes(t *testing.T) {
-	if got := string(Bytes([]byte("a\tb"))); got != "a    b" {
-		t.Fatalf("Bytes = %q", got)
-	}
-	if got := string(Bytes([]byte("a\x1bb"))); strings.Contains(got, "\x1b") {
-		t.Fatalf("Bytes left an escape: %q", got)
-	}
-}

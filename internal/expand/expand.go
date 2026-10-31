@@ -68,26 +68,9 @@ func Controls(s string) string {
 	return b.String()
 }
 
-// Bytes is Expand for file contents.
-func Bytes(p []byte) []byte {
-	if !needsBytes(p) {
-		return p
-	}
-	return []byte(Expand(string(p)))
-}
-
 func needs(s string) bool {
 	for i := 0; i < len(s); i++ {
 		if s[i] < 0x20 || s[i] == 0x7f {
-			return true
-		}
-	}
-	return false
-}
-
-func needsBytes(p []byte) bool {
-	for _, c := range p {
-		if c < 0x20 || c == 0x7f {
 			return true
 		}
 	}

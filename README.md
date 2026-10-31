@@ -1,7 +1,7 @@
 # drif
 
 A terminal diff viewer. Run it inside a worktree and see everything that changed from the base
-branch, as one continuous, syntax-highlighted review surface.
+branch, as one continuous review surface.
 
 ```
 $ cd ~/room/code/worktrees/opencode-site
@@ -147,9 +147,8 @@ Adjust a few colours in your config:
 add_bg = "#10241a"
 del_bg = "#2a1417"
 
-[colors.syntax]
-keyword = "#ff9d6f"
 ```
+The palette is monochrome by design: only additions and deletions carry colour.
 
 Or write a theme file at `~/.config/drif/themes/<name>.toml` and set `theme = "<name>"`:
 
@@ -159,9 +158,9 @@ extends = "dark"       # dark, light, auto, or another theme
 [colors]
 add_fg = "#b8f397"
 
-[colors.syntax]
-string = "#a5d6ff"
 ```
+Everything except additions and deletions is greyscale, which is the point: colour means
+"added" or "removed" and nothing else.
 
 `extends` inherits everything and overrides the rest, so a theme can be one line. `extends = "auto"`
 follows the terminal, which is the default when you leave it out.
@@ -233,9 +232,10 @@ drif renders patches; it does not implement git. It asks git for the diff, parse
 patch, and lays the hunks out as rows. Every surface — split view, pager, plain text, JSON — reads
 those same rows, so what you see interactively is what an agent gets.
 
-Syntax highlighting tokenises the whole file on disk and indexes the tokens by line, rather than
-tokenising the hunk. A block comment that starts above the change still colours correctly, and
-there is no incremental lexer to keep in sync.
+The palette is monochrome apart from green and red. A diff has exactly two things worth
+signalling, and a third colour only competes with them. The file header is pinned to the top and
+changes as you move between files; the bottom line appears only while you are searching, typing a
+command, or reading an error.
 
 ## Development
 

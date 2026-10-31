@@ -10,9 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/fschrhunt/drif/internal/expand"
 	"github.com/fschrhunt/drif/internal/git"
-	"github.com/fschrhunt/drif/internal/highlight"
 	"github.com/fschrhunt/drif/internal/keys"
 	"github.com/fschrhunt/drif/internal/layout"
 	"github.com/fschrhunt/drif/internal/patch"
@@ -37,7 +35,6 @@ type Options struct {
 	Palette *render.Palette
 	Bind    *keys.Map
 	Repo    *git.Repo
-	Cache   *highlight.Cache
 	Watch   bool
 	// Reload re-reads the working tree.
 	Reload func() (*patch.ChangeSet, error)
@@ -49,9 +46,8 @@ type Options struct {
 
 // Model is the bubbletea state.
 type Model struct {
-	cs    *patch.ChangeSet
-	cache *highlight.Cache
-	r     *render.Renderer
+	cs *patch.ChangeSet
+	r  *render.Renderer
 
 	mode    layout.Mode
 	numbers bool
@@ -75,7 +71,6 @@ type Model struct {
 	message  string
 
 	help    bool
-	loading map[string]bool
 	wrapped map[int][][]render.Seg
 
 	auto     bool
@@ -87,8 +82,6 @@ type Model struct {
 	refresh  func() (*Refresh, error)
 	themefn  func(string) (*render.Palette, error)
 }
-
-type loadedMsg struct{ keys []string }
 
 // New builds the model for a change set.
 func New(cs *patch.ChangeSet, opts Options) *Model {
@@ -106,7 +99,6 @@ func New(cs *patch.ChangeSet, opts Options) *Model {
 	}
 	return &Model{
 		cs:      cs,
-		cache:   opts.Cache,
 		mode:    opts.Mode,
 		numbers: opts.Numbers,
 		bind:    bind,
@@ -120,11 +112,9 @@ func New(cs *patch.ChangeSet, opts Options) *Model {
 			Pal:     pal,
 			Mode:    opts.Mode,
 			Depth:   render.DetectDepth(),
-			Cache:   opts.Cache,
 			Prefix:  prefix,
 			Numbers: opts.Numbers,
 		},
-		loading: map[string]bool{},
 		wrapped: map[int][][]render.Seg{},
 	}
 }
@@ -151,14 +141,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chooseAuto()
 		}
 		m.rebuild()
-		return m, m.requestVisible()
-
-	case loadedMsg:
-		for _, k := range msg.keys {
-			delete(m.loading, k)
-		}
-		m.wrapped = map[int][][]render.Seg{}
-		return m, m.requestVisible()
+		return m, nil
 
 	case reloadMsg:
 		m.reloadTree()
@@ -166,7 +149,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if w := m.watch; w != nil {
 			return m, w.wait()
 		}
-		return m, m.requestVisible()
+		return m, nil
 
 	case tea.KeyMsg:
 		switch {
@@ -193,12 +176,12 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 	if msg.String() == "esc" {
 		m.clearSearch()
 		m.help = false
-		return m.requestVisible()
+		return nil
 	}
 
 	action, ok := m.bind.Key[msg.String()]
 	if !ok {
-		return m.requestVisible()
+		return nil
 	}
 	body := m.bodyHeight()
 	switch action {
@@ -218,8 +201,10 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 		m.scroll(-body)
 	case keys.Top:
 		m.top = 0
+		m.skipHeader(1)
 	case keys.Bottom:
 		m.top = m.maxTop()
+		m.skipHeader(-1)
 	case keys.NextFile:
 		m.jumpRow(layout.FileRow, 1)
 	case keys.PrevFile:
@@ -250,7 +235,7 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 		return m.reloadConfig()
 	}
 	m.clampTop()
-	return m.requestVisible()
+	return nil
 }
 
 func (m *Model) clearSearch() {
@@ -410,7 +395,7 @@ func (m *Model) reloadConfig() tea.Cmd {
 		m.top = m.starts[idx]
 	}
 	m.message = "config reloaded"
-	return m.requestVisible()
+	return nil
 }
 
 // reloadTree re-reads the working tree, keeping the reader roughly in place.
@@ -426,12 +411,9 @@ func (m *Model) reloadTree() {
 	}
 	m.cs = cs
 	m.rebuild()
-	if m.cache != nil {
-		m.cache.Reset(cs.MergeBase)
-	}
-	m.loading = map[string]bool{}
 	if idx < len(m.starts) {
 		m.top = m.starts[idx]
+		m.skipHeader(1)
 	}
 }
 
@@ -444,6 +426,7 @@ func (m *Model) setMode(mode layout.Mode) {
 			idx = len(m.starts) - 1
 		}
 		m.top = m.starts[idx]
+		m.skipHeader(1)
 	}
 }
 
@@ -464,10 +447,14 @@ func (m *Model) rebuild() {
 	m.total = n
 	m.wrapped = map[int][][]render.Seg{}
 	m.clampTop()
+	m.skipHeader(1)
 }
 
 func (m *Model) bodyHeight() int {
-	h := m.height - 1
+	h := m.height - 1 // pinned file header
+	if m.chromeVisible() {
+		h--
+	}
 	if h < 1 {
 		return 1
 	}
@@ -494,6 +481,26 @@ func (m *Model) clampTop() {
 func (m *Model) scroll(n int) {
 	m.top += n
 	m.clampTop()
+	m.skipHeader(n)
+}
+
+// skipHeader keeps the first visible line on content. A file header that
+// reaches the top becomes the pinned header; drawing it again underneath would
+// show the same band twice. Headers further down still scroll past, which is
+// how you see the next file arriving.
+func (m *Model) skipHeader(dir int) {
+	if len(m.rows) == 0 || m.rowAt(m.top) >= len(m.rows) {
+		return
+	}
+	if m.rows[m.rowAt(m.top)].Kind != layout.FileRow {
+		return
+	}
+	if dir < 0 {
+		m.top--
+	} else {
+		m.top++
+	}
+	m.clampTop()
 }
 
 // rowAt finds the logical row containing a visual line.
@@ -514,6 +521,7 @@ func (m *Model) jumpRow(kind layout.Kind, dir int) {
 		if m.rows[i].Kind == kind {
 			m.top = m.starts[i]
 			m.clampTop()
+			m.skipHeader(1)
 			return
 		}
 	}
@@ -552,64 +560,15 @@ func (m *Model) jumpMatch(dir int) {
 	}
 	m.top = m.starts[m.matches[m.matchAt]]
 	m.clampTop()
-}
-
-// requestVisible starts highlighting the files currently on screen. It is a
-// no-op when everything visible is already cached, which keeps the loop from
-// spinning.
-func (m *Model) requestVisible() tea.Cmd {
-	if m.cache == nil || m.total == 0 {
-		return nil
-	}
-	type req struct {
-		f   *patch.File
-		old bool
-	}
-	var need []req
-	seen := map[string]bool{}
-	end := m.top + m.bodyHeight()
-	for line := m.top; line < end && line < m.total; line++ {
-		row := m.rows[m.rowAt(line)]
-		if row.File == nil || row.Kind != layout.LineRow {
-			continue
-		}
-		add := func(old bool) {
-			key := highlight.Key(row.File, old)
-			if seen[key] || m.loading[key] || m.cache.Ready(row.File, old) {
-				return
-			}
-			seen[key] = true
-			need = append(need, req{row.File, old})
-		}
-		if m.mode == layout.Split {
-			if row.Left != nil {
-				add(true)
-			}
-			if row.Right != nil {
-				add(false)
-			}
-			continue
-		}
-		add(row.Sign == '-')
-	}
-	if len(need) == 0 {
-		return nil
-	}
-	keys := make([]string, 0, len(need))
-	for _, n := range need {
-		key := highlight.Key(n.f, n.old)
-		m.loading[key] = true
-		keys = append(keys, key)
-	}
-	return func() tea.Msg {
-		for _, n := range need {
-			m.cache.Table(n.f, n.old)
-		}
-		return loadedMsg{keys: keys}
-	}
+	m.skipHeader(1)
 }
 
 // View implements tea.Model.
+//
+// The file header is chrome, not content: it is pinned to the top line and
+// changes when the view moves into another file, so scrolling never loses the
+// answer to "which file am I in". The bottom line exists only while there is
+// something to say — a search, a command, an error.
 func (m *Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
@@ -618,17 +577,37 @@ func (m *Model) View() string {
 		return m.helpView()
 	}
 	body := m.bodyHeight()
+	chrome := m.chromeVisible()
+
 	var b strings.Builder
+	b.WriteString(m.headerLine())
+	b.WriteByte('\n')
 	for i := 0; i < body; i++ {
 		line := m.top + i
 		if line < m.total {
 			b.WriteString(m.visualLine(line))
 		}
 		b.WriteString("\x1b[0m")
-		b.WriteByte('\n')
+		if i < body-1 || chrome {
+			b.WriteByte('\n')
+		}
 	}
-	b.WriteString(m.statusBar())
+	if chrome {
+		b.WriteString(m.chromeLine())
+	}
 	return b.String()
+}
+
+// headerLine renders the pinned header for the file under the viewport.
+func (m *Model) headerLine() string {
+	if len(m.rows) == 0 {
+		return ""
+	}
+	row := m.rows[m.rowAt(m.top)]
+	if row.File == nil {
+		return ""
+	}
+	return render.ANSI(m.r.Segments(layout.Row{Kind: layout.FileRow, File: row.File}), m.r.Depth)
 }
 
 func (m *Model) visualLine(n int) string {
@@ -649,10 +628,15 @@ func (m *Model) visualLine(n int) string {
 	return render.ANSI(render.Fit(wrapped[sub], m.r.Width, m.r.Fill(m.rows[idx])), m.r.Depth)
 }
 
-func (m *Model) statusBar() string {
+// chromeVisible is true only while there is something transient to show.
+func (m *Model) chromeVisible() bool {
+	return m.typing || m.cmdMode || m.query != "" || m.message != ""
+}
+
+// chromeLine is the transient bottom line: a prompt, a search, or a message.
+func (m *Model) chromeLine() string {
 	pal := m.r.Pal
-	dim := render.Style{Fg: pal.Dim}
-	segs := []render.Seg{{Text: " ", Style: dim}}
+	segs := []render.Seg{{Text: " ", Style: render.Style{Fg: pal.Dim}}}
 
 	switch {
 	case m.cmdMode:
@@ -673,68 +657,13 @@ func (m *Model) statusBar() string {
 			pos = m.matchAt + 1
 		}
 		segs = append(segs, render.Seg{
-			Text:  fmt.Sprintf("/%s %d/%d  ", m.query, pos, len(m.matches)),
+			Text:  fmt.Sprintf("/%s %d/%d", m.query, pos, len(m.matches)),
 			Style: render.Style{Fg: pal.Accent},
 		})
 	case m.message != "":
 		segs = append(segs, render.Seg{Text: m.message, Style: render.Style{Fg: pal.Accent}})
-	default:
-		row := layout.Row{}
-		if len(m.rows) > 0 {
-			row = m.rows[m.rowAt(m.top)]
-		}
-		if row.File != nil {
-			path := expand.Expand(strings.TrimPrefix(row.File.Path(), m.r.Prefix))
-			segs = append(segs, render.Seg{Text: path, Style: render.Style{Fg: pal.Text}})
-			if row.File.Additions > 0 {
-				segs = append(segs, render.Seg{Text: " +" + itoa(row.File.Additions), Style: render.Style{Fg: pal.AddFg}})
-			}
-			if row.File.Deletions > 0 {
-				segs = append(segs, render.Seg{Text: " -" + itoa(row.File.Deletions), Style: render.Style{Fg: pal.DelFg}})
-			}
-			segs = append(segs, render.Seg{Text: "  ", Style: dim})
-		}
 	}
-
-	var right []render.Seg
-	// A message or an open prompt gets the whole line: nothing is more useless
-	// than a diagnostic clipped in half by a scroll percentage.
-	if m.message == "" && !m.cmdMode && !m.typing {
-		pct := 0
-		if m.maxTop() > 0 {
-			pct = m.top * 100 / m.maxTop()
-		}
-		right = []render.Seg{
-			{Text: m.mode.String(), Style: dim},
-			{Text: " · ", Style: dim},
-			{Text: fmt.Sprintf("%d%%", pct), Style: dim},
-			{Text: " · ? help ", Style: dim},
-		}
-	}
-	avail := m.r.Width - render.Width(right)
-	segs = clipSegs(segs, avail)
-	return render.ANSI(append(segs, right...), m.r.Depth)
-}
-
-// clipSegs truncates to w columns and marks the cut, so a long path or error
-// reads as truncated instead of as a broken tail.
-func clipSegs(segs []render.Seg, w int) []render.Seg {
-	if w <= 0 {
-		return nil
-	}
-	if render.Width(segs) <= w {
-		return segs
-	}
-	out := render.Fit(segs[:len(segs):len(segs)], w-1, render.Style{})
-	out = append(out, render.Seg{Text: "…", Style: lastStyle(segs)})
-	return out
-}
-
-func lastStyle(segs []render.Seg) render.Style {
-	if len(segs) == 0 {
-		return render.Style{}
-	}
-	return segs[len(segs)-1].Style
+	return render.ANSI(render.Fit(segs, m.r.Width, render.Style{}), m.r.Depth)
 }
 
 // helpRows pairs the actions shown in help with a description. The keys come
@@ -793,26 +722,4 @@ func (m *Model) bindings(actions ...string) string {
 		}
 	}
 	return strings.Join(out, " ")
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return string(buf[i:])
 }
