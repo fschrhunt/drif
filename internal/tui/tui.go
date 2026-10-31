@@ -467,21 +467,30 @@ func (m *Model) maxTop() int {
 }
 
 func (m *Model) clampTop() {
-	lo, hi := m.minTop(), m.maxTop()
-	if m.top > hi {
-		m.top = hi
+	if m.top < m.minTop() {
+		m.top = m.minTop()
 	}
-	if m.top < lo {
-		m.top = lo
+	if m.top > m.maxTop() {
+		m.top = m.maxTop()
 	}
-	// A header at the very top would be drawn twice: once pinned, once
-	// inline. Step off it, backwards when the bottom of the view is a header.
-	if len(m.rows) > 0 && m.rows[m.rowAt(m.top)].Kind == layout.FileRow {
-		if m.top+1 <= hi {
-			m.top++
-		} else if m.top-1 >= lo {
-			m.top--
-		}
+	// Jumps land wherever they like; move off a header if one ended up on top.
+	m.settle()
+}
+
+// settle moves a top that landed on a file header onto the nearest content
+// line. It is only for explicit jumps, never for scrolling, which uses step and
+// therefore knows which way it is going.
+func (m *Model) settle() {
+	if len(m.rows) == 0 || m.top >= m.total {
+		return
+	}
+	if m.rows[m.rowAt(m.top)].Kind != layout.FileRow {
+		return
+	}
+	if m.top+1 <= m.maxTop() {
+		m.top++
+	} else if m.top-1 >= m.minTop() {
+		m.top--
 	}
 }
 
@@ -497,8 +506,35 @@ func (m *Model) minTop() int {
 }
 
 func (m *Model) scroll(n int) {
-	m.top += n
-	m.clampTop()
+	if n == 0 {
+		return
+	}
+	dir := 1
+	if n < 0 {
+		dir = -1
+		n = -n
+	}
+	for i := 0; i < n; i++ {
+		if !m.step(dir) {
+			return
+		}
+	}
+}
+
+// step moves the viewport one line in dir, skipping file headers: the viewport
+// may not start on one, because the pinned header already shows it. Direction
+// matters. A step that always moved forward would make scrolling upwards onto a
+// header cancel itself, which is how a view gets stuck.
+func (m *Model) step(dir int) bool {
+	next := m.top + dir
+	for next >= 0 && next < m.total && m.rows[m.rowAt(next)].Kind == layout.FileRow {
+		next += dir
+	}
+	if next < m.minTop() || next > m.maxTop() {
+		return false
+	}
+	m.top = next
+	return true
 }
 
 // rowAt finds the logical row containing a visual line.
