@@ -80,8 +80,9 @@ func TestSplitShowsBothSides(t *testing.T) {
 	if !strings.Contains(line, "newValue") {
 		t.Errorf("split row should show both sides: %q", line)
 	}
-	if !strings.Contains(line, "│") {
-		t.Errorf("split row should have a divider: %q", line)
+	// The halves are separated by blank columns, not a drawn divider.
+	if strings.Contains(line, "│") {
+		t.Errorf("split should not draw a divider: %q", line)
 	}
 }
 
@@ -186,8 +187,9 @@ func TestHelpUsesLiveBindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := New(fixture(), Options{Mode: layout.Unified, Numbers: true, Bind: km, Repo: &git.Repo{}})
-	if got := m.bindings(keys.Quit); got != "x ctrl+q" {
-		t.Fatalf("quit bindings = %q", got)
+	got := m.bind.Action[keys.Quit]
+	if len(got) != 2 || got[0] != "x" || got[1] != "ctrl+q" {
+		t.Fatalf("quit bindings = %v", got)
 	}
 }
 

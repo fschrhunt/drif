@@ -41,8 +41,8 @@ add_fg = "#040506"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Text != hex("#1f1f1f") {
-		t.Errorf("text = %v, want the light base", p.Text)
+	if p.Text.Set {
+		t.Errorf("text should stay unset so the terminal's own foreground is used")
 	}
 	if p.AddBg != hex("#010203") {
 		t.Errorf("add_bg = %v", p.AddBg)
@@ -62,8 +62,8 @@ func TestDefaultBaseFollowsTheTerminal(t *testing.T) {
 	if p.AddBg != hex("#112233") {
 		t.Errorf("add_bg = %v", p.AddBg)
 	}
-	if !p.Text.Set {
-		t.Error("an inherited base should provide text")
+	if !p.Dim.Set {
+		t.Error("an inherited base should provide the dim colour")
 	}
 }
 

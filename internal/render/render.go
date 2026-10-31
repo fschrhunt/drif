@@ -66,12 +66,15 @@ func (r *Renderer) Fill(row layout.Row) Style {
 
 // Height is how many visual lines a row occupies at the current width.
 func (r *Renderer) Height(row layout.Row) int {
+	if row.Kind == layout.FileRow {
+		return 2 // the name and the rule under it
+	}
 	if r.Width <= 0 || r.Mode == layout.Split {
 		return 1
 	}
 	var w int
 	switch row.Kind {
-	case layout.FileRow, layout.MetaRow, layout.HunkRow:
+	case layout.MetaRow, layout.HunkRow:
 		w = runewidth.StringWidth(row.Text) + 2
 	default:
 		w = runewidth.StringWidth(row.Text) + row.Gutter + 2
@@ -101,7 +104,7 @@ func (r *Renderer) fileSegs(f *patch.File) []Seg {
 	}
 	left = append(left, Seg{Text: base, Style: Style{Fg: r.Pal.FileFg, Bold: true}})
 	if f.Status != patch.Modified {
-		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.FileFg, Bold: true}})
+		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.Dim}})
 	}
 
 	right := make([]Seg, 0, 4)
@@ -117,6 +120,15 @@ func (r *Renderer) fileSegs(f *patch.File) []Seg {
 	right = append(right, Seg{Text: " ", Style: Style{}})
 
 	return r.joinBand(left, right, Style{})
+}
+
+// Rule is the single dim line that ends a file header.
+func (r *Renderer) Rule() string {
+	if r.Width <= 0 {
+		return ""
+	}
+	segs := []Seg{{Text: strings.Repeat("─", r.Width), Style: Style{Fg: r.Pal.Dim}}}
+	return ANSI(segs, r.Depth)
 }
 
 // joinBand places left and right text on one full-width band, filling the gap
@@ -180,7 +192,7 @@ func (r *Renderer) splitSegs(row layout.Row) []Seg {
 	if total <= 0 {
 		total = 160
 	}
-	const sepW = 3
+	const sepW = 2
 	avail := total - sepW
 	if avail < 20 {
 		// Too narrow to compare: fall back to a single column so the row is
@@ -191,7 +203,10 @@ func (r *Renderer) splitSegs(row layout.Row) []Seg {
 	rw := avail - lw
 
 	segs := r.cellSegs(row.File, row.Left, true, lw, row.Gutter)
-	segs = append(segs, Seg{Text: " │ ", Style: Style{Fg: r.Pal.Dim}})
+	// A drawn divider competes with the gutter for a job the gutter already
+	// does. Two blank columns of the terminal's own background separate the
+	// halves and nothing else.
+	segs = append(segs, Seg{Text: "  ", Style: Style{}})
 	segs = append(segs, r.cellSegs(row.File, row.Right, false, rw, row.Gutter)...)
 	return segs
 }

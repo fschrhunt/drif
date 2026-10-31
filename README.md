@@ -148,7 +148,8 @@ add_bg = "#10241a"
 del_bg = "#2a1417"
 
 ```
-The palette is monochrome by design: only additions and deletions carry colour.
+The palette is monochrome by design: only additions and deletions carry colour, and only changed
+lines paint a background.
 
 Or write a theme file at `~/.config/drif/themes/<name>.toml` and set `theme = "<name>"`:
 
@@ -170,8 +171,11 @@ drif theme              # list installed themes
 drif theme dark         # print the resolved colours as a theme file to copy
 ```
 
-Inside the viewer, `:theme <name>` switches immediately and `R` re-reads the config from disk, so
-you can keep the theme file open in another window while you tune it.
+Inside the viewer, `?` opens the command palette — search, jump, layout, theme, line numbers,
+reload, quit — and `/` stays content search. There are no hints printed on screen: the palette is
+the only place drif explains itself. `:theme <name>` still works if you want a theme the palette
+does not list. `R` re-reads the config from disk, so you can keep the theme file open in another
+window while you tune it.
 
 ## Keys
 
