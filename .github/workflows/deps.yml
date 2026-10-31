@@ -1,0 +1,122 @@
+name: Dependency updates
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: deps-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  update:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.capture.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go get -u=patch ./... && go mod tidy
+      - name: Check the updated dependencies
+        run: ./x check
+      - name: Capture the checked patch
+        id: capture
+        run: |
+          if git diff --quiet -- go.mod go.sum; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff --binary -- go.mod go.sum > "$RUNNER_TEMP/dependency-update.patch"
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.capture.outputs.changed == 'true'
+        with:
+          name: dependency-update
+          path: ${{ runner.temp }}/dependency-update.patch
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: update
+    if: needs.update.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dependency-update
+          path: ${{ runner.temp }}
+      - name: Publish only the checked dependency patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch='chore/dependency-updates'
+          ref="refs/heads/$branch"
+
+          # Never overwrite a branch somebody else is using.
+          remote_sha=$(git ls-remote origin "$ref" | cut -f1)
+          if [ -n "$remote_sha" ]; then
+            author=$(gh api "repos/$GITHUB_REPOSITORY/commits/$remote_sha" --jq '.author.login // empty')
+            [ "$author" = 'github-actions[bot]' ] || {
+              echo "The reserved dependency branch has foreign commits; refusing to touch it." >&2
+              exit 1
+            }
+          fi
+
+          git apply --cached --binary "$RUNNER_TEMP/dependency-update.patch"
+
+          # This updater may only ever change the module files.
+          unexpected=$(git diff --cached --name-only | grep -v -E '^(go\.mod|go\.sum)$' || true)
+          [ -z "$unexpected" ] || { echo "Unexpected path in the update: $unexpected" >&2; exit 1; }
+          [ -z "$(git diff --cached --summary)" ] || { echo 'The update changes file modes.' >&2; exit 1; }
+          git diff --cached --check
+          [ -n "$(git diff --cached --name-only)" ] || { echo 'The update is empty.' >&2; exit 1; }
+
+          git config user.name 'github-actions[bot]'
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git -c core.hooksPath=/dev/null commit -m 'chore: update dependencies'
+          if [ -n "$remote_sha" ]; then
+            git push --force-with-lease="$ref:$remote_sha" origin "HEAD:$ref"
+          else
+            git push origin "HEAD:$ref"
+          fi
+
+          body="$RUNNER_TEMP/body.md"
+          {
+            echo '## Dependency update'
+            echo
+            echo 'Patch-level Go module updates produced by the scheduled updater.'
+            echo
+            git diff --stat HEAD~1 HEAD
+            echo
+            echo '### Validation'
+            echo '- `./x check` passed against these exact changes before publication.'
+          } > "$body"
+
+          if pr=$(gh pr view "$branch" --json number --jq .number 2>/dev/null); then
+            gh pr edit "$pr" --body-file "$body"
+          else
+            gh pr create --base main --head "$branch" \
+              --title 'chore: update dependencies' --body-file "$body"
+          fi

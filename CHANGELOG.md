@@ -11,6 +11,8 @@
   edit.
 - `drif --list`, `drif --file PATH` and `drif --json` give scripts and agents a cheap index and
   a stable structure.
+- Terminal control characters in file content are drawn as visible pictures instead of being sent
+  to the terminal, in the interactive view, the pager and the plain output. `--json` is unchanged.
 - Pager mode for `git diff | drif` and `git config core.pager drif`; previously coloured patches
   are stripped before parsing.
 - `--watch` reloads the review surface as files change.

@@ -119,7 +119,7 @@ func (r *Repo) Load(opts Options) (*patch.ChangeSet, error) {
 	}
 
 	raw, err := gitOut(r.Root, "-c", "core.quotepath=false", "diff",
-		"--no-color", "--no-ext-diff", "-M",
+		"--no-color", "--no-ext-diff", "--no-textconv", "-M",
 		fmt.Sprintf("--unified=%d", opts.Context), mb, "--", r.scope())
 	if err != nil {
 		return nil, err

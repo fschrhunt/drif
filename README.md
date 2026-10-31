@@ -25,10 +25,14 @@ hide the deletions and read only the result.
 ## Install
 
 ```sh
+# Homebrew
+brew install fschrhunt/drif/drif
+
+# or the installer: checksum-verified release, into ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/fschrhunt/drif/main/install.sh | sh
 ```
 
-or, from a checkout:
+From a checkout:
 
 ```sh
 go install ./cmd/drif
@@ -36,6 +40,7 @@ ln -sf drif "$(go env GOPATH)/bin/git-drif"
 ```
 
 The `git-drif` link is what makes `git drif` work; git looks up `git-<name>` on `PATH`.
+Releases are attested: `gh attestation verify <archive> -R fschrhunt/drif`.
 
 ## Try it on awkward diffs
 

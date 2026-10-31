@@ -24,11 +24,11 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: go.mod
       - run: ./x check
 
-  # The diff pipeline depends on the git binary, not just on Go, and the two
-  # major git implementations disagree about patch output in small ways.
+  # The pipeline depends on the git binary, not just on Go, and the two major
+  # implementations disagree about patch output in small ways.
   macOS:
     name: macOS
     runs-on: macos-latest
@@ -39,5 +39,18 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.26'
+          go-version-file: go.mod
       - run: ./x check
+
+  # Branch protection requires a check named "Required"; it aggregates the
+  # matrix so the ruleset does not have to name every runner.
+  Required:
+    name: Required
+    needs: [Linux, macOS]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Both platforms must pass
+        run: |
+          test "${{ needs.Linux.result }}" = success
+          test "${{ needs.macOS.result }}" = success

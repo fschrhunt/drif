@@ -26,6 +26,13 @@
 - `internal/highlight/`: Chroma lexing per file, trimmed to the lines a diff shows, cached.
 - `internal/render/`: palette detection, ANSI encoding, width maths, plain text, list output, JSON.
 - `internal/tui/`: the bubbletea model and the fsnotify watcher behind `--watch`.
+- `install.sh`: downloads a release, checks it against `checksums.txt`, and links `git-drif`.
+- `scripts/release.sh`: the two-step release (changelog PR, then tag through Actions).
+- `scripts/formula.sh` and `scripts/formula_pr.py`: generate `drif.rb` from release checksums and
+  open it as a reviewable PR; automation never merges it.
+- `.github/workflows/`: CI (Linux, macOS, and a `Required` aggregate the ruleset names), release,
+  and weekly dependency updates. `.github/rulesets/main.json` is the branch protection source of
+  truth; if you rename the `Required` job, change both.
 - `scripts/demo.sh`: builds a repository of awkward changes (rename, binary, mode-only, symlink,
   CRLF, non-ASCII paths, unborn HEAD) for looking at by hand. The same cases are pinned in
   `internal/git/real_test.go`.

@@ -1,0 +1,12 @@
+# Every change needs the maintainer's eyes; these paths are the trust boundary —
+# how a diff is produced and how it reaches a terminal. Branch protection requires
+# code-owner review, so a PR touching them cannot merge on green checks alone.
+
+*                     @fschrhunt
+
+/internal/git/        @fschrhunt
+/internal/patch/      @fschrhunt
+/internal/render/     @fschrhunt
+/install.sh           @fschrhunt
+/scripts/             @fschrhunt
+/.github/             @fschrhunt
