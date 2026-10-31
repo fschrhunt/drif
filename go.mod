@@ -1,4 +1,4 @@
-module github.com/fschrhunt/drift
+module github.com/fschrhunt/drif
 
 go 1.26.0
 

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drif/internal/patch"
 )
 
 // These tests run real git and parse its real output. The parser has unit

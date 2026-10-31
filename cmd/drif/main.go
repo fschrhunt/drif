@@ -1,4 +1,4 @@
-// Command drift shows what changed in a worktree as a terminal review surface.
+// Command drif shows what changed in a worktree as a terminal review surface.
 package main
 
 import (
@@ -16,16 +16,16 @@ import (
 	xterm "github.com/charmbracelet/x/term"
 	isatty "github.com/mattn/go-isatty"
 
-	"github.com/fschrhunt/drift/internal/config"
-	"github.com/fschrhunt/drift/internal/git"
-	"github.com/fschrhunt/drift/internal/highlight"
-	"github.com/fschrhunt/drift/internal/keys"
-	"github.com/fschrhunt/drift/internal/layout"
-	"github.com/fschrhunt/drift/internal/patch"
-	"github.com/fschrhunt/drift/internal/paths"
-	"github.com/fschrhunt/drift/internal/render"
-	"github.com/fschrhunt/drift/internal/theme"
-	"github.com/fschrhunt/drift/internal/tui"
+	"github.com/fschrhunt/drif/internal/config"
+	"github.com/fschrhunt/drif/internal/git"
+	"github.com/fschrhunt/drif/internal/highlight"
+	"github.com/fschrhunt/drif/internal/keys"
+	"github.com/fschrhunt/drif/internal/layout"
+	"github.com/fschrhunt/drif/internal/patch"
+	"github.com/fschrhunt/drif/internal/paths"
+	"github.com/fschrhunt/drif/internal/render"
+	"github.com/fschrhunt/drif/internal/theme"
+	"github.com/fschrhunt/drif/internal/tui"
 )
 
 var version = "dev"
@@ -33,7 +33,7 @@ var version = "dev"
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
-	// Subcommands come before the flag set so `drift config` is a command, not
+	// Subcommands come before the flag set so `drif config` is a command, not
 	// a stray argument.
 	if len(args) > 0 {
 		switch args[0] {
@@ -42,10 +42,10 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 		}
 	}
 
-	fs := flag.NewFlagSet("drift", flag.ContinueOnError)
+	fs := flag.NewFlagSet("drif", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
-	configPath := fs.String("config", "", "config file (default: $XDG_CONFIG_HOME/drift/config.toml)")
+	configPath := fs.String("config", "", "config file (default: $XDG_CONFIG_HOME/drif/config.toml)")
 	base := fs.String("base", "", "revision to compare against")
 	context := fs.Int("context", 3, "lines of context in each hunk")
 	noUntracked := fs.Bool("no-untracked", false, "ignore files git does not track")
@@ -70,7 +70,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if *showVersion {
-		fmt.Fprintln(stdout, "drift "+version)
+		fmt.Fprintln(stdout, "drif "+version)
 		return 0
 	}
 
@@ -122,7 +122,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 
 	active, err := resolve()
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 
@@ -131,7 +131,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 
 	cs, err := load(repo, active.Base, active.Context, active.Untracked, stdin, stdinTTY)
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	if *file != "" {
@@ -142,7 +142,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 	case *asJSON:
 		out, err := render.JSON(cs)
 		if err != nil {
-			fmt.Fprintf(stderr, "drift: %v\n", err)
+			fmt.Fprintf(stderr, "drif: %v\n", err)
 			return 2
 		}
 		fmt.Fprintln(stdout, string(out))
@@ -213,12 +213,12 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Con
 
 	keymap, err := active.KeyMap()
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	palette, err := theme.Resolve(active.Theme, active.Colors)
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 
@@ -271,7 +271,7 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Con
 		Theme:   themeFor,
 	}
 	if _, err := tea.NewProgram(tui.New(cs, opts), programOptions(stdinTTY)...).Run(); err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	return 0
@@ -318,7 +318,7 @@ func writeStatic(cs *patch.ChangeSet, cfg *config.Config, colorMode string, stdo
 	}
 	palette, err := theme.Resolve(cfg.Theme, cfg.Colors)
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	r := &render.Renderer{
@@ -335,12 +335,12 @@ func writeStatic(cs *patch.ChangeSet, cfg *config.Config, colorMode string, stdo
 	return 0
 }
 
-// command runs the subcommands that configure drift itself.
+// command runs the subcommands that configure drif itself.
 func command(name string, args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("drift "+name, flag.ContinueOnError)
+	fs := flag.NewFlagSet("drif "+name, flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	configPath := fs.String("config", "", "config file")
-	repoFile := fs.Bool("repo", false, "write .drift.toml in the repository instead")
+	repoFile := fs.Bool("repo", false, "write .drif.toml in the repository instead")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -363,16 +363,16 @@ func initConfig(configPath string, repoFile bool, stdout, stderr io.Writer) int 
 	if repoFile {
 		repo, err := git.Discover()
 		if err != nil {
-			fmt.Fprintf(stderr, "drift: %v\n", err)
+			fmt.Fprintf(stderr, "drif: %v\n", err)
 			return 2
 		}
 		path := filepath.Join(repo.Root, config.RepoFileName)
 		if _, err := os.Stat(path); err == nil {
-			fmt.Fprintf(stderr, "drift: %s already exists; edit it instead\n", path)
+			fmt.Fprintf(stderr, "drif: %s already exists; edit it instead\n", path)
 			return 1
 		}
 		if err := os.WriteFile(path, []byte(config.RepoTemplate()), 0o644); err != nil {
-			fmt.Fprintf(stderr, "drift: %v\n", err)
+			fmt.Fprintf(stderr, "drif: %v\n", err)
 			return 2
 		}
 		fmt.Fprintf(stdout, "wrote %s\n", path)
@@ -381,19 +381,19 @@ func initConfig(configPath string, repoFile bool, stdout, stderr io.Writer) int 
 
 	path, err := paths.ConfigFile(configPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	if _, err := os.Stat(path); err == nil {
-		fmt.Fprintf(stderr, "drift: %s already exists; edit it instead\n", path)
+		fmt.Fprintf(stderr, "drif: %s already exists; edit it instead\n", path)
 		return 1
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	if err := os.WriteFile(path, []byte(config.Template()), 0o644); err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	themes, err := paths.ThemesDir()
@@ -407,12 +407,12 @@ func initConfig(configPath string, repoFile bool, stdout, stderr io.Writer) int 
 func showConfig(configPath string, stdout, stderr io.Writer) int {
 	cfg, path, err := config.Load(configPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	palette, err := theme.Resolve(cfg.Theme, cfg.Colors)
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	_, statErr := os.Stat(path)
@@ -422,7 +422,7 @@ func showConfig(configPath string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "config  %s\n", source)
 	// Show the resolution, not just the setting: "which revision am I looking
-	// at" is the question drift exists to answer.
+	// at" is the question drif exists to answer.
 	if repo, err := git.Discover(); err == nil {
 		if base, err := repo.ResolveBase(cfg.Base); err == nil {
 			line := "base    " + base
@@ -447,7 +447,7 @@ func showConfig(configPath string, stdout, stderr io.Writer) int {
 	if repo, err := git.Discover(); err == nil {
 		rc, repoPath, err := config.LoadRepo(repo.Root)
 		if err != nil {
-			fmt.Fprintf(stderr, "drift: %v\n", err)
+			fmt.Fprintf(stderr, "drif: %v\n", err)
 			return 2
 		}
 		switch {
@@ -465,7 +465,7 @@ func showConfig(configPath string, stdout, stderr io.Writer) int {
 
 	km, err := cfg.KeyMap()
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	fmt.Fprintln(stdout, "\nkeys")
@@ -498,7 +498,7 @@ func themeCommand(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		names, err := theme.List()
 		if err != nil {
-			fmt.Fprintf(stderr, "drift: %v\n", err)
+			fmt.Fprintf(stderr, "drif: %v\n", err)
 			return 2
 		}
 		for _, n := range names {
@@ -509,16 +509,16 @@ func themeCommand(args []string, stdout, stderr io.Writer) int {
 	name := args[0]
 	palette, err := theme.Resolve(name, theme.ColorSet{})
 	if err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
-	fmt.Fprintf(stdout, "# drift theme: %s\n", name)
+	fmt.Fprintf(stdout, "# drif theme: %s\n", name)
 	fmt.Fprintf(stdout, "# Copy this to %s/themes/%s.toml and edit.\n\n", configDir(), name)
 	enc := toml.NewEncoder(stdout)
 	if err := enc.Encode(struct {
 		Colors theme.ColorSet `toml:"colors"`
 	}{theme.ToColorSet(palette)}); err != nil {
-		fmt.Fprintf(stderr, "drift: %v\n", err)
+		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
 	return 0
@@ -527,7 +527,7 @@ func themeCommand(args []string, stdout, stderr io.Writer) int {
 func configDir() string {
 	dir, err := paths.Dir()
 	if err != nil {
-		return "~/.config/drift"
+		return "~/.config/drif"
 	}
 	return dir
 }
@@ -566,16 +566,16 @@ func orDefault(s, fallback string) string {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, `drift — see what changed in a worktree
+	fmt.Fprint(w, `drif — see what changed in a worktree
 
 usage:
-  drift [flags]            interactive review of the working tree
-  git diff | drift         render a patch
-  drift --list             one line per changed file
-  drift --json             machine-readable change set
-  drift config             show the effective configuration
-  drift theme [name]       list themes, or print one as a theme file
-  drift init [--repo]      write a starter config (--repo: .drift.toml)
+  drif [flags]            interactive review of the working tree
+  git diff | drif         render a patch
+  drif --list             one line per changed file
+  drif --json             machine-readable change set
+  drif config             show the effective configuration
+  drif theme [name]       list themes, or print one as a theme file
+  drif init [--repo]      write a starter config (--repo: .drif.toml)
 
 flags:
   --config PATH       configuration file

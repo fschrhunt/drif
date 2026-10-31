@@ -1,11 +1,11 @@
-# Working on drift
+# Working on drif
 
 ## Commands
 
 - `./x check` (the default) checks Go formatting, vet, build and race tests without rewriting
   sources.
 - `./x --help` lists targets; `./x test` and `./x build` forward Go arguments.
-- `go build -o drift ./cmd/drift` builds the binary (Go 1.26 or newer).
+- `go build -o drif ./cmd/drif` builds the binary (Go 1.26 or newer).
 - `go test ./...` runs the offline suites. The git tests create throwaway repositories in
   `t.TempDir()`; nothing touches a real repository. `internal/git/real_test.go` runs the real git
   binary and parses its real output — keep it that way, because the bugs live in that seam.
@@ -13,7 +13,7 @@
 
 ## Code map
 
-- `cmd/drift/main.go`: flags, exit codes, and the routing between the four output surfaces.
+- `cmd/drif/main.go`: flags, exit codes, and the routing between the four output surfaces.
 - `internal/git/`: repository discovery, base resolution, loading the change set, reading file
   content at a revision.
 - `internal/paths/`: where the config directory, config file and themes live.
@@ -33,10 +33,10 @@
 
 ## Conventions
 
-Use the fewest moving parts. drift shells out to git and parses its output; do not grow a second
+Use the fewest moving parts. drif shells out to git and parses its output; do not grow a second
 implementation of history, renames or whitespace rules.
 
-Repository-level config (`.drift.toml`) may only declare what to compare against. Before adding a
+Repository-level config (`.drif.toml`) may only declare what to compare against. Before adding a
 setting there, ask whether it changes what is compared or how it looks; the second kind belongs in
 the user config, because a repository must not be able to change how it is reviewed.
 

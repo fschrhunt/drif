@@ -1,4 +1,4 @@
-// Package tui is drift's interactive review surface: a viewport over the same
+// Package tui is drif's interactive review surface: a viewport over the same
 // rows the pager prints, plus navigation, search, layout toggles and a command
 // line for changing the running configuration.
 package tui
@@ -10,12 +10,12 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/fschrhunt/drift/internal/git"
-	"github.com/fschrhunt/drift/internal/highlight"
-	"github.com/fschrhunt/drift/internal/keys"
-	"github.com/fschrhunt/drift/internal/layout"
-	"github.com/fschrhunt/drift/internal/patch"
-	"github.com/fschrhunt/drift/internal/render"
+	"github.com/fschrhunt/drif/internal/git"
+	"github.com/fschrhunt/drif/internal/highlight"
+	"github.com/fschrhunt/drif/internal/keys"
+	"github.com/fschrhunt/drif/internal/layout"
+	"github.com/fschrhunt/drif/internal/patch"
+	"github.com/fschrhunt/drif/internal/render"
 )
 
 // Refresh is a re-read of the configuration while the view is running, which
@@ -762,7 +762,7 @@ func (m *Model) helpView() string {
 	pal := m.r.Pal
 	var b strings.Builder
 	b.WriteString("\n  ")
-	b.WriteString(render.ANSI([]render.Seg{{Text: "drift", Style: render.Style{Fg: pal.Accent, Bold: true}}}, m.r.Depth))
+	b.WriteString(render.ANSI([]render.Seg{{Text: "drif", Style: render.Style{Fg: pal.Accent, Bold: true}}}, m.r.Depth))
 	b.WriteString("\n\n")
 	for _, row := range helpRows {
 		label := m.bindings(row.actions...)

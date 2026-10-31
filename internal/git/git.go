@@ -1,5 +1,5 @@
-// Package git answers everything drift needs to know about a repository.
-// Every question goes to git itself: drift parses patches, it never
+// Package git answers everything drif needs to know about a repository.
+// Every question goes to git itself: drif parses patches, it never
 // re-implements history, rename detection or whitespace rules.
 package git
 
@@ -13,10 +13,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drif/internal/patch"
 )
 
-// maxUntrackedSize bounds what drift is willing to read from a file git does
+// maxUntrackedSize bounds what drif is willing to read from a file git does
 // not track yet. Beyond it the file is reported but not shown.
 const maxUntrackedSize = 2 << 20
 
@@ -24,7 +24,7 @@ const maxUntrackedSize = 2 << 20
 // whether it is binary.
 const maxBinarySniff = 8 << 10
 
-// Repo is an open repository plus the directory drift was invoked from.
+// Repo is an open repository plus the directory drif was invoked from.
 type Repo struct {
 	Root   string // absolute path to the working tree root
 	Prefix string // path from the root to the invocation directory; "" at root
@@ -53,10 +53,10 @@ func (r *Repo) ResolveBase(explicit string) (string, error) {
 	if explicit != "" {
 		return explicit, nil
 	}
-	if v := os.Getenv("DRIFT_BASE"); v != "" {
+	if v := os.Getenv("DRIF_BASE"); v != "" {
 		return v, nil
 	}
-	if v, err := git(r.Root, "config", "--get", "drift.base"); err == nil {
+	if v, err := git(r.Root, "config", "--get", "drif.base"); err == nil {
 		if v = strings.TrimSpace(v); v != "" {
 			return v, nil
 		}
@@ -74,7 +74,7 @@ func (r *Repo) hasRef(ref string) bool {
 	return err == nil
 }
 
-// Head is the abbreviated commit drift is looking at.
+// Head is the abbreviated commit drif is looking at.
 func (r *Repo) Head() string {
 	out, err := git(r.Root, "rev-parse", "--short", "HEAD")
 	if err != nil {
@@ -152,8 +152,8 @@ func (r *Repo) emptyTree() (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
-// MergeBase is the fork point drift compares the working tree against. It is
-// exported so `drift config` can show where the diff actually comes from.
+// MergeBase is the fork point drif compares the working tree against. It is
+// exported so `drif config` can show where the diff actually comes from.
 func (r *Repo) MergeBase(base string) (string, error) { return r.mergeBase(base) }
 
 func (r *Repo) mergeBase(base string) (string, error) {
@@ -225,7 +225,7 @@ func (r *Repo) ReadWorkingTree(path string) ([]byte, error) {
 	return os.ReadFile(filepath.Join(r.Root, path))
 }
 
-// scope is the pathspec that limits git to the directory drift was run in.
+// scope is the pathspec that limits git to the directory drif was run in.
 // Commands run with the repository root as their working directory, so a bare
 // "." would mean the whole tree.
 func (r *Repo) scope() string {

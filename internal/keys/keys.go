@@ -1,4 +1,4 @@
-// Package keys names the things drift can do and binds them to keystrokes.
+// Package keys names the things drif can do and binds them to keystrokes.
 // Every action is rebindable; the only rule is that one key does one thing.
 package keys
 
@@ -71,7 +71,7 @@ func Defaults() map[string][]string {
 
 // Map is a resolved keymap. Key answers "what does this press do"; Action
 // answers "what presses trigger this", in the order they were written, which is
-// what help and `drift config` print.
+// what help and `drif config` print.
 type Map struct {
 	Key    map[string]string
 	Action map[string][]string

@@ -6,11 +6,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/fschrhunt/drift/internal/git"
-	"github.com/fschrhunt/drift/internal/keys"
-	"github.com/fschrhunt/drift/internal/layout"
-	"github.com/fschrhunt/drift/internal/patch"
-	"github.com/fschrhunt/drift/internal/render"
+	"github.com/fschrhunt/drif/internal/git"
+	"github.com/fschrhunt/drif/internal/keys"
+	"github.com/fschrhunt/drif/internal/layout"
+	"github.com/fschrhunt/drif/internal/patch"
+	"github.com/fschrhunt/drif/internal/render"
 )
 
 func fixture() *patch.ChangeSet {

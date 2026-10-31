@@ -1,4 +1,4 @@
-// Package config reads drift's configuration file. The file is optional and
+// Package config reads drif's configuration file. The file is optional and
 // small on purpose: it holds the handful of choices worth remembering, the key
 // bindings, and any colour overrides to layer on a theme.
 package config
@@ -12,9 +12,9 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/fschrhunt/drift/internal/keys"
-	"github.com/fschrhunt/drift/internal/paths"
-	"github.com/fschrhunt/drift/internal/theme"
+	"github.com/fschrhunt/drif/internal/keys"
+	"github.com/fschrhunt/drif/internal/paths"
+	"github.com/fschrhunt/drif/internal/theme"
 )
 
 // KeyList accepts either "q" or ["q", "ctrl+c"] in the [keys] table, because
@@ -59,7 +59,7 @@ type Config struct {
 // Layouts are the accepted values of layout.
 var Layouts = []string{"auto", "split", "unified", "new"}
 
-// Default is what drift does with no config file at all: follow the terminal,
+// Default is what drif does with no config file at all: follow the terminal,
 // pick the layout from the width, and include everything uncommitted.
 func Default() *Config {
 	return &Config{
@@ -85,7 +85,7 @@ func Load(explicit string) (*Config, string, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) && explicit == "" && os.Getenv("DRIFT_CONFIG") == "" {
+		if errors.Is(err, os.ErrNotExist) && explicit == "" && os.Getenv("DRIF_CONFIG") == "" {
 			return cfg, path, nil
 		}
 		return nil, path, err
@@ -104,7 +104,7 @@ func Load(explicit string) (*Config, string, error) {
 	return cfg, path, nil
 }
 
-// Validate rejects values drift cannot honour, so a typo fails loudly instead
+// Validate rejects values drif cannot honour, so a typo fails loudly instead
 // of being silently ignored.
 func (c *Config) Validate() error {
 	if c.Theme == "" {
@@ -138,16 +138,16 @@ func (c *Config) KeyMap() (*keys.Map, error) {
 	return keys.Build(overrides)
 }
 
-// Template is the commented starter file written by `drift init`.
+// Template is the commented starter file written by `drif init`.
 func Template() string {
 	dir, _ := paths.Dir()
-	return `# drift configuration
+	return `# drif configuration
 #
 # Everything here is optional. Delete a line to get the built-in behaviour back.
 # This file is read from:
 #   ` + dir + `/config.toml
 #
-# Override the location with --config or $DRIFT_CONFIG.
+# Override the location with --config or $DRIF_CONFIG.
 
 # Theme: "auto" follows the terminal's background. "dark" and "light" are
 # built in. Any other name is a file at ` + dir + `/themes/<name>.toml.
@@ -193,7 +193,7 @@ watch = false
 // RepoFileName is the repository-level config, and it lives only at the
 // repository root. Nesting it per directory would make "which file won" a
 // question nobody wants to ask while reading a diff.
-const RepoFileName = ".drift.toml"
+const RepoFileName = ".drif.toml"
 
 // Repo is what a repository is allowed to declare: what to compare against.
 //
@@ -212,7 +212,7 @@ var personal = map[string]bool{
 	"numbers": true, "context": true, "untracked": true, "watch": true,
 }
 
-// LoadRepo reads <root>/.drift.toml. A missing file is not an error.
+// LoadRepo reads <root>/.drif.toml. A missing file is not an error.
 func LoadRepo(root string) (*Repo, string, error) {
 	path := filepath.Join(root, RepoFileName)
 	var r Repo
@@ -238,15 +238,15 @@ func LoadRepo(root string) (*Repo, string, error) {
 	return &r, path, nil
 }
 
-// RepoTemplate is the file `drift init --repo` writes.
+// RepoTemplate is the file `drif init --repo` writes.
 func RepoTemplate() string {
-	return `# Repository settings for drift.
+	return `# Repository settings for drif.
 #
 # A repository may say what to compare against. It may not say how the diff is
 # painted: themes, colours, keys and layout are personal and belong in
-# ~/.config/drift/config.toml.
+# ~/.config/drif/config.toml.
 
-# The revision the working tree is compared against. When this is unset drift
+# The revision the working tree is compared against. When this is unset drif
 # uses origin/HEAD, then main, then master.
 # base = "main"
 `

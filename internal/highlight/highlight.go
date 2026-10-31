@@ -10,8 +10,8 @@ import (
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
-	"github.com/fschrhunt/drift/internal/git"
-	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drif/internal/git"
+	"github.com/fschrhunt/drif/internal/patch"
 )
 
 // Class is the coarse token category a renderer maps to a colour.

@@ -1,11 +1,11 @@
-# drift
+# drif
 
 A terminal diff viewer. Run it inside a worktree and see everything that changed from the base
 branch, as one continuous, syntax-highlighted review surface.
 
 ```
 $ cd ~/room/code/worktrees/opencode-site
-$ drift
+$ drif
 ```
 
 Split view compares old and new side by side. Press `s` to fold it into one column, `s` again to
@@ -25,17 +25,17 @@ hide the deletions and read only the result.
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/fschrhunt/drift/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/fschrhunt/drif/main/install.sh | sh
 ```
 
 or, from a checkout:
 
 ```sh
-go install ./cmd/drift
-ln -sf drift "$(go env GOPATH)/bin/git-drift"
+go install ./cmd/drif
+ln -sf drif "$(go env GOPATH)/bin/git-drif"
 ```
 
-The `git-drift` link is what makes `git drift` work; git looks up `git-<name>` on `PATH`.
+The `git-drif` link is what makes `git drif` work; git looks up `git-<name>` on `PATH`.
 
 ## Try it on awkward diffs
 
@@ -45,35 +45,35 @@ binary, a mode-only change, a symlink, a deleted file, CRLF, non-ASCII and space
 
 ```sh
 scripts/demo.sh
-cd /tmp/drift-demo && drift
+cd /tmp/drif-demo && drif
 ```
 
-`drift config` in any repository prints the revision being compared, which is the quickest way to
+`drif config` in any repository prints the revision being compared, which is the quickest way to
 check you are looking at what you think you are:
 
 ```
-config  ~/.config/drift/config.toml
+config  ~/.config/drif/config.toml
 base    origin/main → 061321a
 ```
 
 ## Usage
 
 ```
-drift                      review the working tree
-drift --base origin/main   compare against something else
-drift --file render.go     one file only
-drift --layout split       start in a specific layout
-drift --list               one line per changed file
-drift --json               the change set as JSON
-git diff | drift           render a patch
+drif                      review the working tree
+drif --base origin/main   compare against something else
+drif --file render.go     one file only
+drif --layout split       start in a specific layout
+drif --list               one line per changed file
+drif --json               the change set as JSON
+git diff | drif           render a patch
 ```
 
-Bare `drift` compares the merge base of the base branch and `HEAD` against the working tree,
+Bare `drif` compares the merge base of the base branch and `HEAD` against the working tree,
 so it includes staged, unstaged and untracked files, and leaves out commits that landed on the
 base branch after you branched. Everything under the current directory is in scope; run it from
 `src/` and you only see `src/`.
 
-The base is found from `--base`, `$DRIFT_BASE`, `git config drift.base`, `origin/HEAD`,
+The base is found from `--base`, `$DRIF_BASE`, `git config drif.base`, `origin/HEAD`,
 `origin/main`, `origin/master`, `main`, then `master`.
 
 ## Configuration
@@ -81,12 +81,12 @@ The base is found from `--base`, `$DRIFT_BASE`, `git config drift.base`, `origin
 Nothing has to be configured. The file exists for the handful of things worth remembering.
 
 ```sh
-drift init     # write a commented config
-drift config   # show what is actually in effect
+drif init     # write a commented config
+drif config   # show what is actually in effect
 ```
 
-The file lives at `~/.config/drift/config.toml` (`$XDG_CONFIG_HOME/drift/config.toml`, or
-`$DRIFT_CONFIG_DIR`; override the file itself with `--config`). Every key is optional — delete a
+The file lives at `~/.config/drif/config.toml` (`$XDG_CONFIG_HOME/drif/config.toml`, or
+`$DRIF_CONFIG_DIR`; override the file itself with `--config`). Every key is optional — delete a
 line and you get the built-in behaviour back.
 
 ```toml
@@ -111,14 +111,14 @@ Flags override the file, and only when you actually pass them.
 ### Per repository
 
 One setting genuinely belongs to the project rather than to you: which branch it
-branches from. Put a `.drift.toml` at the repository root and everyone who
+branches from. Put a `.drif.toml` at the repository root and everyone who
 clones it compares against the right place.
 
 ```toml
 base = "develop"
 ```
 
-`drift init --repo` writes one. That is the entire schema, on purpose: a
+`drif init --repo` writes one. That is the entire schema, on purpose: a
 repository may say **what** to compare against, never **how** the diff is
 painted. Themes, colours, keys, layout and context are rejected there with an
 error, because a review tool whose presenter can be set by the thing being
@@ -128,7 +128,7 @@ Your own `base` still wins over the repository's, and `--base` wins over both.
 
 ## Themes
 
-Two palettes ship and drift picks between them by asking your terminal for its background — there
+Two palettes ship and drif picks between them by asking your terminal for its background — there
 is nothing to choose. When you want a different look, you layer on top of that.
 
 Adjust a few colours in your config:
@@ -142,7 +142,7 @@ del_bg = "#2a1417"
 keyword = "#ff9d6f"
 ```
 
-Or write a theme file at `~/.config/drift/themes/<name>.toml` and set `theme = "<name>"`:
+Or write a theme file at `~/.config/drif/themes/<name>.toml` and set `theme = "<name>"`:
 
 ```toml
 extends = "dark"       # dark, light, auto, or another theme
@@ -158,8 +158,8 @@ string = "#a5d6ff"
 follows the terminal, which is the default when you leave it out.
 
 ```sh
-drift theme              # list installed themes
-drift theme dark         # print the resolved colours as a theme file to copy
+drif theme              # list installed themes
+drif theme dark         # print the resolved colours as a theme file to copy
 ```
 
 Inside the viewer, `:theme <name>` switches immediately and `R` re-reads the config from disk, so
@@ -200,15 +200,15 @@ The command line takes a small set of verbs:
 
 ## For agents
 
-`drift --list` then `drift --file PATH` is the same shape as `git diff --stat` then
+`drif --list` then `drif --file PATH` is the same shape as `git diff --stat` then
 `git diff -- PATH`, so there is nothing new to learn:
 
 ```sh
-$ drift --list
+$ drif --list
 M	internal/render/render.go	+7	-7
 A	notes.txt	+1	-0
 
-$ drift --file notes.txt
+$ drif --file notes.txt
 ```
 
 `--json` emits the full structure with a versioned schema. When output is not a terminal nothing
@@ -220,7 +220,7 @@ produced it.
 
 ## How it works
 
-drift renders patches; it does not implement git. It asks git for the diff, parses the unified
+drif renders patches; it does not implement git. It asks git for the diff, parses the unified
 patch, and lays the hunks out as rows. Every surface — split view, pager, plain text, JSON — reads
 those same rows, so what you see interactively is what an agent gets.
 

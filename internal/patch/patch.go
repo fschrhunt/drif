@@ -1,6 +1,6 @@
 // Package patch parses git's unified diff output into a change set the
 // renderers walk. The parser is deliberately lenient: a line it does not
-// understand is ignored rather than failing the whole patch, because drift
+// understand is ignored rather than failing the whole patch, because drif
 // renders whatever git hands it, including patches produced by other tools.
 package patch
 
@@ -160,7 +160,7 @@ func (p *parser) readLine() (string, error) {
 	// carriage return that moves the terminal cursor mid-line.
 	s = strings.TrimSuffix(s, "\r")
 	// Git colours its output when it thinks it is writing to a terminal, which
-	// is exactly what happens when drift is configured as core.pager.
+	// is exactly what happens when drif is configured as core.pager.
 	if strings.IndexByte(s, 0x1b) >= 0 {
 		s = stripANSI(s)
 	}

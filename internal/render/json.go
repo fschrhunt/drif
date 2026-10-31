@@ -3,7 +3,7 @@ package render
 import (
 	"encoding/json"
 
-	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drif/internal/patch"
 )
 
 // JSONSchema is bumped whenever the shape below changes incompatibly, so

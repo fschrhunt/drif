@@ -1,6 +1,6 @@
-# drift — design
+# drif — design
 
-A terminal diff viewer for a worktree. Run `drift` anywhere inside a repository and see everything
+A terminal diff viewer for a worktree. Run `drif` anywhere inside a repository and see everything
 that changed from the base branch, as one continuous review surface. The same binary serves people
 and agents.
 
@@ -13,17 +13,17 @@ Six decisions follow from that sentence, and most of the code exists to keep the
 
 1. **Nothing to set up.** The defaults are the product: no `init`, no profile, no daemon. A config
    file exists for the handful of choices worth remembering, and it is entirely optional — delete
-   it and drift still knows what to do. A setting worth a flag someone types twice a year is worth
+   it and drif still knows what to do. A setting worth a flag someone types twice a year is worth
    inferring instead.
 2. **Borrow the host, never impose on it.** Colours come from the terminal. Nobody is asked to pick
    a theme, because the terminal was already themed.
 3. **One surface, not a file viewer.** The whole change set is a single scrollable document. That
    is what separates a review surface from a pager.
-4. **Dead simple by default, capable when asked.** Bare `drift` means one thing. Everything else is
+4. **Dead simple by default, capable when asked.** Bare `drif` means one thing. Everything else is
    a keystroke, not a menu.
 5. **Two audiences, one model.** A person gets colour and layout; an agent gets the same rows as
    plain text or JSON, in the `--list` then `--file` shape it already knows. There is no agent mode.
-6. **Render diffs; do not reimplement git.** Git decides what changed. drift owns how it looks.
+6. **Render diffs; do not reimplement git.** Git decides what changed. drif owns how it looks.
 
 Anti-goals: a git client, a merge tool, a plugin host, a scripting surface, a file browser. The
 config is a flat file of choices; it does not run code.
@@ -42,7 +42,7 @@ comment is probably stale; fix it.
   directory, so the pathspec is the `--show-prefix` value rather than `.`.
 - Paths display relative to the invocation directory.
 
-Base resolution order: `--base`, `$DRIFT_BASE`, `git config drift.base`, `refs/remotes/origin/HEAD`,
+Base resolution order: `--base`, `$DRIF_BASE`, `git config drif.base`, `refs/remotes/origin/HEAD`,
 `origin/main`, `origin/master`, `main`, `master`. Worktrees are usually detached, which is why
 `origin/HEAD` comes before the local branches.
 
@@ -90,7 +90,7 @@ the *layout* copy only, so the JSON and the plain output stay byte-faithful to t
 
 ## 5. Parsing
 
-drift parses patches; it does not implement git. Rename detection, binary detection, mode changes,
+drif parses patches; it does not implement git. Rename detection, binary detection, mode changes,
 submodules and text conversion all come from the real thing.
 
 Leniency is deliberate: a line the parser does not understand is ignored, never fatal. The parser
@@ -106,7 +106,7 @@ tests enumerate the shapes that actually break naive implementations:
 - `--- /dev/null`, `+++ /dev/null`
 - CRLF content
 - colour codes, because git colours its output when it thinks its pager is a terminal — which is
-  exactly the case when drift is `core.pager`
+  exactly the case when drif is `core.pager`
 
 Combined diffs (`diff --cc`) are not modelled and degrade to no rows rather than mis-rendering.
 
@@ -136,7 +136,7 @@ plain", so the failure mode is dull, not broken.
 
 ## 8. Colour
 
-Two palettes ship, one for dark backgrounds and one for light, and drift picks between them from
+Two palettes ship, one for dark backgrounds and one for light, and drif picks between them from
 `COLORFGBG` when the terminal exports it, otherwise by asking the terminal for its background
 (OSC 11), and otherwise by assuming dark. There is no theme option on purpose: the terminal is already themed, and a viewer that asks
 the user to describe their own screen has failed at the one thing it can see for free.
@@ -149,9 +149,9 @@ the output blends instead of fighting you.
 ## 9. Agent contract
 
 ```sh
-drift --list              status, path, +n, -n per file
-drift --file src/a.go     one file
-drift --json              versioned structure
+drif --list              status, path, +n, -n per file
+drif --file src/a.go     one file
+drif --json              versioned structure
 ```
 
 Guarantees: no colour unless asked, no pagination, no prompting, deterministic ordering, stable
@@ -163,7 +163,7 @@ not have to learn anything.
 
 ## 10. Configuration
 
-The file is TOML, at `$XDG_CONFIG_HOME/drift/config.toml`, and it only ever holds values, never
+The file is TOML, at `$XDG_CONFIG_HOME/drif/config.toml`, and it only ever holds values, never
 code. Precedence is defaults, then the file, then flags that were actually passed — `fs.Visit` is
 what makes "actually passed" knowable, so a flag left at its default never clobbers a configured
 value.
@@ -177,7 +177,7 @@ the unstable part. Replacing an action's list replaces all of its keys, which is
 `down = ["n"]` reads as. `keys.Map` keeps both directions so help can print bindings in the order
 they were written.
 
-A repository may also carry `.drift.toml` at its root, and it may declare exactly one
+A repository may also carry `.drif.toml` at its root, and it may declare exactly one
 thing: `base`. That is the setting that belongs to a project rather than a person, and the only one
 where "which branch does this fork from" is a shared fact. Everything else is refused by name,
 with an error that says so, because the interesting failure mode of a review tool is a repository
@@ -197,7 +197,7 @@ reason configuration is worth having in an interactive tool: the feedback is imm
    necessarily the revision that produced a piped patch, and colouring from the wrong file is
    worse than no colour.
 4. Inline image diffs through the kitty/iTerm graphics protocol.
-5. Whether `.drift.toml` should grow an `ignore` list for generated paths. It fits the same rule —
+5. Whether `.drif.toml` should grow an `ignore` list for generated paths. It fits the same rule —
    narrowing what is compared, not how it is shown — but is not implemented.
 6. Whether themes should be able to override the *structure* (gutters, separators), which is
    currently fixed so every theme keeps the same geometry.

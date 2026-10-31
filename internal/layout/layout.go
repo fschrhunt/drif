@@ -1,7 +1,7 @@
 // Package layout turns a parsed change set into the rows every renderer
 // draws. Rows are independent of terminal width: wrapping and truncation
 // happen at draw time, which keeps the pager, the TUI and the plain output
-// from drifting apart.
+// from drifing apart.
 package layout
 
 import (
@@ -11,7 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drif/internal/patch"
 )
 
 // Mode is how the change is presented.

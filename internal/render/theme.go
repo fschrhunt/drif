@@ -1,6 +1,6 @@
 // Package render draws layout rows as terminal output. It owns the palette,
 // the ANSI encoding and the width maths; the TUI and the pager both use it so
-// they cannot drift apart.
+// they cannot drif apart.
 package render
 
 import (
@@ -10,11 +10,11 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/fschrhunt/drift/internal/highlight"
+	"github.com/fschrhunt/drif/internal/highlight"
 )
 
 // Color is an optional RGB colour. An unset colour means "leave whatever the
-// terminal is already using", which is how drift adapts to a user's theme.
+// terminal is already using", which is how drif adapts to a user's theme.
 type Color struct {
 	R, G, B uint8
 	Set     bool
@@ -136,7 +136,7 @@ func Light() *Palette {
 	return p
 }
 
-// DetectPalette returns the palette for the terminal drift is drawing into.
+// DetectPalette returns the palette for the terminal drif is drawing into.
 // There is deliberately no way to choose: the terminal already knows, and a
 // viewer that asks the user to describe their own screen has failed at the one
 // thing it can see for free.

@@ -1,14 +1,14 @@
 #!/bin/sh
-# Builds a repository full of awkward changes so you can look at how drift
+# Builds a repository full of awkward changes so you can look at how drif
 # renders them. Every file here is something that has broken a diff viewer
 # before: renames, binaries, mode-only changes, symlinks, spaces, non-ASCII,
 # CRLF, an empty file, a deleted file and an untracked binary.
 #
-#   scripts/demo.sh [dir]     # default: /tmp/drift-demo
-#   cd /tmp/drift-demo && drift
+#   scripts/demo.sh [dir]     # default: /tmp/drif-demo
+#   cd /tmp/drif-demo && drif
 set -eu
 
-dir=${1:-/tmp/drift-demo}
+dir=${1:-/tmp/drif-demo}
 rm -rf "$dir"
 mkdir -p "$dir"
 cd "$dir"
@@ -91,4 +91,4 @@ echo "built $dir"
 echo
 git status --short
 echo
-echo "now run:  cd $dir && drift"
+echo "now run:  cd $dir && drif"

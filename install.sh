@@ -1,20 +1,20 @@
 #!/bin/sh
-# Installs drift into ~/.local/bin (or $DRIFT_INSTALL_DIR) and links git-drift
-# beside it so `git drift` resolves too. Run it again to update.
+# Installs drif into ~/.local/bin (or $DRIF_INSTALL_DIR) and links git-drif
+# beside it so `git drif` resolves too. Run it again to update.
 #
-#   curl -fsSL https://raw.githubusercontent.com/fschrhunt/drift/main/install.sh | sh
-#   DRIFT_VERSION=v0.1.0 ./install.sh
+#   curl -fsSL https://raw.githubusercontent.com/fschrhunt/drif/main/install.sh | sh
+#   DRIF_VERSION=v0.1.0 ./install.sh
 set -eu
 
-dir=${DRIFT_INSTALL_DIR:-$HOME/.local/bin}
-version=${DRIFT_VERSION:-latest}
+dir=${DRIF_INSTALL_DIR:-$HOME/.local/bin}
+version=${DRIF_VERSION:-latest}
 
 command -v go >/dev/null 2>&1 || {
-    echo "drift install: Go is required to build from source" >&2
+    echo "drif install: Go is required to build from source" >&2
     exit 1
 }
 
 mkdir -p "$dir"
-GOBIN="$dir" go install "github.com/fschrhunt/drift/cmd/drift@${version}"
-ln -sf drift "$dir/git-drift"
-echo "installed $dir/drift and $dir/git-drift"
+GOBIN="$dir" go install "github.com/fschrhunt/drif/cmd/drif@${version}"
+ln -sf drif "$dir/git-drif"
+echo "installed $dir/drif and $dir/git-drif"

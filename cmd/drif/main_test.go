@@ -53,8 +53,8 @@ func stdinFrom(t *testing.T, content string) *os.File {
 
 func invoke(t *testing.T, stdin string, args ...string) (int, string, string) {
 	t.Helper()
-	t.Setenv("DRIFT_CONFIG_DIR", t.TempDir())
-	t.Setenv("DRIFT_CONFIG", "")
+	t.Setenv("DRIF_CONFIG_DIR", t.TempDir())
+	t.Setenv("DRIF_CONFIG", "")
 	var out, errOut bytes.Buffer
 	code := run(args, stdinFrom(t, stdin), &out, &errOut)
 	return code, out.String(), errOut.String()

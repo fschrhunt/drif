@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fschrhunt/drift/internal/render"
+	"github.com/fschrhunt/drif/internal/render"
 )
 
 func hex(s string) render.Color { return render.Hex(s) }
@@ -14,7 +14,7 @@ func hex(s string) render.Color { return render.Hex(s) }
 func withThemes(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	t.Setenv("DRIFT_CONFIG_DIR", dir)
+	t.Setenv("DRIF_CONFIG_DIR", dir)
 	if err := os.MkdirAll(filepath.Join(dir, "themes"), 0o755); err != nil {
 		t.Fatal(err)
 	}

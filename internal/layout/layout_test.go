@@ -3,7 +3,7 @@ package layout
 import (
 	"testing"
 
-	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drif/internal/patch"
 )
 
 func changeset(lines ...patch.Line) *patch.ChangeSet {

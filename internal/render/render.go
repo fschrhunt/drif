@@ -7,9 +7,9 @@ import (
 
 	"github.com/mattn/go-runewidth"
 
-	"github.com/fschrhunt/drift/internal/highlight"
-	"github.com/fschrhunt/drift/internal/layout"
-	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drif/internal/highlight"
+	"github.com/fschrhunt/drif/internal/layout"
+	"github.com/fschrhunt/drif/internal/patch"
 )
 
 // Renderer turns layout rows into styled segments.

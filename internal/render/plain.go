@@ -3,8 +3,8 @@ package render
 import (
 	"strings"
 
-	"github.com/fschrhunt/drift/internal/layout"
-	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drif/internal/layout"
+	"github.com/fschrhunt/drif/internal/patch"
 )
 
 // PlainLines renders a change set as uncoloured text: the shape an agent or a

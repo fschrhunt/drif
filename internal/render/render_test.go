@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drif/internal/patch"
 )
 
 func changeset() *patch.ChangeSet {

@@ -17,9 +17,9 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/fschrhunt/drift/internal/highlight"
-	"github.com/fschrhunt/drift/internal/paths"
-	"github.com/fschrhunt/drift/internal/render"
+	"github.com/fschrhunt/drif/internal/highlight"
+	"github.com/fschrhunt/drif/internal/paths"
+	"github.com/fschrhunt/drif/internal/render"
 )
 
 // ColorSet is the complete, optional description of a palette. Every field is

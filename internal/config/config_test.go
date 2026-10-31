@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fschrhunt/drift/internal/keys"
+	"github.com/fschrhunt/drif/internal/keys"
 )
 
 func writeConfig(t *testing.T, body string) string {
@@ -86,8 +86,8 @@ func TestBadBindingIsRejected(t *testing.T) {
 }
 
 func TestMissingDefaultConfigIsNotAnError(t *testing.T) {
-	t.Setenv("DRIFT_CONFIG_DIR", t.TempDir())
-	t.Setenv("DRIFT_CONFIG", "")
+	t.Setenv("DRIF_CONFIG_DIR", t.TempDir())
+	t.Setenv("DRIF_CONFIG", "")
 	cfg, _, err := Load("")
 	if err != nil {
 		t.Fatal(err)
