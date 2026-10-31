@@ -10,6 +10,8 @@ release tooling):
 ./x check                   # fmt, vet, build and race tests
 ./x test ./internal/patch   # focused package tests
 ./x build -o drif ./cmd/drif
+./x review                  # build this checkout and review its own changes with it
+./x demo                    # build the demo repository and review it
 ```
 
 `./x` defaults to `check`, which checks formatting without rewriting sources. CI
@@ -19,12 +21,14 @@ and release checks use the same command, including `go test -race ./...`.
 
 Tests are hermetic and offline. `internal/git/real_test.go` builds throwaway
 repositories in `t.TempDir()` and parses the output of the real git binary —
-that seam is where the bugs are, so keep it exercised. `scripts/demo.sh` builds
-a repository of awkward changes for looking at by hand:
+that seam is where the bugs are, so keep it exercised. `scripts/demo.sh` builds a repository that reads like one branch of real work for looking at by
+hand, and `scripts/demo.sh --edges` builds the awkward cases — binary, symlink, CRLF, unicode
+paths, mode-only change — that the renderer has to survive. Use the first to judge the experience
+and the second when changing the renderer:
 
 ```sh
-scripts/demo.sh
-cd /tmp/drif-demo && drif
+./x demo
+./x demo --edges
 ```
 
 Add a CHANGELOG entry for user-visible changes, under `## Unreleased`. Keep
