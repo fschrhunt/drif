@@ -15,6 +15,10 @@
 - `cmd/drift/main.go`: flags, exit codes, and the routing between the four output surfaces.
 - `internal/git/`: repository discovery, base resolution, loading the change set, reading file
   content at a revision.
+- `internal/paths/`: where the config directory, config file and themes live.
+- `internal/config/`: the TOML file, its defaults, and validation.
+- `internal/keys/`: the action vocabulary and the keymap, in both directions.
+- `internal/theme/`: colour sets, `extends` layering, and palette resolution.
 - `internal/patch/`: the unified-diff parser and the change model. Deliberately lenient; the
   parser tests enumerate every awkward shape git can emit.
 - `internal/layout/`: rows, split pairing, word-level emphasis. Width-independent by design.
@@ -27,6 +31,10 @@
 
 Use the fewest moving parts. drift shells out to git and parses its output; do not grow a second
 implementation of history, renames or whitespace rules.
+
+Adding an action means three edits that must stay in step: the constant and `All` in
+`internal/keys`, a case in the TUI's key switch, and a row in `helpRows`. A binding that does
+nothing is the easiest bug to ship here.
 
 Keep the four surfaces honest. Split view, pager, plain text and JSON must all read the same
 `layout` rows, so a thing the JSON cannot express is a thing the TUI should not draw. When you

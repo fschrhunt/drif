@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/fschrhunt/drift/internal/git"
+	"github.com/fschrhunt/drift/internal/keys"
 	"github.com/fschrhunt/drift/internal/layout"
 	"github.com/fschrhunt/drift/internal/patch"
 	"github.com/fschrhunt/drift/internal/render"
@@ -151,4 +152,76 @@ func stripANSI(s string) string {
 		}
 	}
 	return b.String()
+}
+
+func press(msg string) tea.KeyMsg {
+	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(msg)}
+}
+
+func TestReboundQuitKey(t *testing.T) {
+	km, err := keys.Build(map[string][]string{keys.Quit: {"x"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New(fixture(), Options{Mode: layout.Unified, Numbers: true, Bind: km, Repo: &git.Repo{}})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
+
+	if _, cmd := m.Update(press("q")); cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Fatal("q should no longer quit once it is rebound")
+		}
+	}
+	_, cmd := m.Update(press("x"))
+	if cmd == nil {
+		t.Fatal("x produced no command")
+	}
+	if _, quit := cmd().(tea.QuitMsg); !quit {
+		t.Fatal("x should quit")
+	}
+}
+
+func TestHelpUsesLiveBindings(t *testing.T) {
+	km, err := keys.Build(map[string][]string{keys.Quit: {"x", "ctrl+q"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := New(fixture(), Options{Mode: layout.Unified, Numbers: true, Bind: km, Repo: &git.Repo{}})
+	if got := m.bindings(keys.Quit); got != "x ctrl+q" {
+		t.Fatalf("quit bindings = %q", got)
+	}
+}
+
+func TestColonCommands(t *testing.T) {
+	m := newModel(layout.Unified)
+
+	m.exec("layout new")
+	if m.mode != layout.New {
+		t.Errorf("mode = %v", m.mode)
+	}
+
+	before := m.numbers
+	m.exec("numbers")
+	if m.numbers == before {
+		t.Error(":numbers should toggle")
+	}
+
+	m.exec("theme mine")
+	if !strings.Contains(m.message, "unavailable") {
+		t.Errorf("message = %q", m.message)
+	}
+
+	m.exec("nonsense")
+	if !strings.Contains(m.message, "unknown command") {
+		t.Errorf("message = %q", m.message)
+	}
+}
+
+func TestSearchAcceptsSpaces(t *testing.T) {
+	m := newModel(layout.Unified)
+	m.Update(press("/"))
+	m.Update(tea.KeyMsg{Type: tea.KeySpace, Runes: []rune(" ")})
+	m.Update(press("x"))
+	if m.input != " x" {
+		t.Fatalf("input = %q", m.input)
+	}
 }

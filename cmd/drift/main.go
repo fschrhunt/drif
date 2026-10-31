@@ -8,17 +8,23 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	tea "github.com/charmbracelet/bubbletea"
 	xterm "github.com/charmbracelet/x/term"
 	isatty "github.com/mattn/go-isatty"
 
+	"github.com/fschrhunt/drift/internal/config"
 	"github.com/fschrhunt/drift/internal/git"
 	"github.com/fschrhunt/drift/internal/highlight"
+	"github.com/fschrhunt/drift/internal/keys"
 	"github.com/fschrhunt/drift/internal/layout"
 	"github.com/fschrhunt/drift/internal/patch"
+	"github.com/fschrhunt/drift/internal/paths"
 	"github.com/fschrhunt/drift/internal/render"
+	"github.com/fschrhunt/drift/internal/theme"
 	"github.com/fschrhunt/drift/internal/tui"
 )
 
@@ -27,9 +33,19 @@ var version = "dev"
 func main() { os.Exit(run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr)) }
 
 func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
+	// Subcommands come before the flag set so `drift config` is a command, not
+	// a stray argument.
+	if len(args) > 0 {
+		switch args[0] {
+		case "config", "theme", "init":
+			return command(args[0], args[1:], stdout, stderr)
+		}
+	}
+
 	fs := flag.NewFlagSet("drift", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 
+	configPath := fs.String("config", "", "config file (default: $XDG_CONFIG_HOME/drift/config.toml)")
 	base := fs.String("base", "", "revision to compare against")
 	context := fs.Int("context", 3, "lines of context in each hunk")
 	noUntracked := fs.Bool("no-untracked", false, "ignore files git does not track")
@@ -38,9 +54,10 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 	asJSON := fs.Bool("json", false, "emit the change set as JSON")
 	plain := fs.Bool("plain", false, "never start the interactive view")
 	forceTUI := fs.Bool("tui", false, "start the interactive view even when a patch is piped in")
-	color := fs.String("color", "auto", "colour: auto, always or never")
+	themeName := fs.String("theme", "", "theme name, or a file in the themes directory")
+	layoutName := fs.String("layout", "", "initial layout: auto, split, unified or new")
+	colorMode := fs.String("color", "auto", "colour: auto, always or never")
 	noNumbers := fs.Bool("no-numbers", false, "hide line numbers")
-	mode := fs.String("mode", "", "initial layout: split, unified or new")
 	exitCode := fs.Bool("exit-code", false, "exit 1 when there are changes")
 	watch := fs.Bool("watch", false, "reload when files change")
 	showVersion := fs.Bool("version", false, "print the version")
@@ -57,10 +74,45 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 		return 0
 	}
 
+	active, _, err := config.Load(*configPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	// Flags win over the file, but only when they were actually given; a flag
+	// left at its default must not overwrite a value the user configured.
+	set := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	if set["base"] {
+		active.Base = *base
+	}
+	if set["context"] {
+		active.Context = *context
+	}
+	if set["no-untracked"] {
+		active.Untracked = !*noUntracked
+	}
+	if set["theme"] {
+		active.Theme = *themeName
+	}
+	if set["layout"] {
+		active.Layout = *layoutName
+	}
+	if set["no-numbers"] {
+		active.Numbers = !*noNumbers
+	}
+	if set["watch"] {
+		active.Watch = *watch
+	}
+	if err := active.Validate(); err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+
 	stdinTTY := isatty.IsTerminal(stdin.Fd()) || isatty.IsCygwinTerminal(stdin.Fd())
 	stdoutTTY := isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
 
-	cs, repo, err := load(*base, *context, !*noUntracked, stdin, stdinTTY)
+	cs, repo, err := load(active.Base, active.Context, active.Untracked, stdin, stdinTTY)
 	if err != nil {
 		fmt.Fprintf(stderr, "drift: %v\n", err)
 		return 2
@@ -90,48 +142,13 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 		}
 		interactive := stdoutTTY && !*plain && (stdinTTY || *forceTUI)
 		if interactive {
-			var cache *highlight.Cache
-			if repo != nil {
-				cache = highlight.New(repo, cs.MergeBase)
-			}
-			m := layout.Unified
-			auto := *mode == ""
-			switch *mode {
-			case "split":
-				m = layout.Split
-			case "new":
-				m = layout.New
-			case "unified":
-				m = layout.Unified
-			case "":
-				m = layout.Split // narrowed automatically on small terminals
-			default:
-				fmt.Fprintf(stderr, "drift: unknown mode %q\n", *mode)
-				return 2
-			}
-			var reload func() (*patch.ChangeSet, error)
-			if repo != nil {
-				reload = func() (*patch.ChangeSet, error) {
-					next, err := repo.Load(git.Options{Base: *base, Context: *context, Untracked: !*noUntracked})
-					if err != nil {
-						return nil, err
-					}
-					if *file != "" {
-						next.Files = pick(next.Files, *file)
-					}
-					return next, nil
-				}
-			}
-			opts := tui.Options{
-				Mode: m, Auto: auto, Numbers: !*noNumbers,
-				Repo: repo, Cache: cache, Watch: *watch, Reload: reload,
-			}
-			if err := runTUI(cs, opts, stdinTTY); err != nil {
-				fmt.Fprintf(stderr, "drift: %v\n", err)
-				return 2
+			if code := runTUI(cs, active, *configPath, repo, stdinTTY, stderr); code != 0 {
+				return code
 			}
 		} else {
-			writeStatic(cs, !*noNumbers, *color, stdoutTTY, stdout)
+			if code := writeStatic(cs, active, *colorMode, stdoutTTY, stdout, stderr); code != 0 {
+				return code
+			}
 		}
 	}
 
@@ -169,21 +186,104 @@ func load(base string, context int, untracked bool, stdin *os.File, stdinTTY boo
 	return cs, repo, nil
 }
 
-func runTUI(cs *patch.ChangeSet, opts tui.Options, stdinTTY bool) error {
-	model := tui.New(cs, opts)
-	progOpts := []tea.ProgramOption{tea.WithAltScreen()}
+// runTUI starts the interactive view. The config is re-read on demand so a
+// theme can be edited in one window and seen in another.
+func runTUI(cs *patch.ChangeSet, cfg *config.Config, configPath string, repo *git.Repo, stdinTTY bool, stderr io.Writer) int {
+	active := cfg
+
+	keymap, err := active.KeyMap()
+	if err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	palette, err := theme.Resolve(active.Theme, active.Colors)
+	if err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+
+	var cache *highlight.Cache
+	if repo != nil {
+		cache = highlight.New(repo, cs.MergeBase)
+	}
+
+	refresh := func() (*tui.Refresh, error) {
+		next, _, err := config.Load(configPath)
+		if err != nil {
+			return nil, err
+		}
+		if next.Base == "" {
+			next.Base = cfg.Base
+		}
+		pal, err := theme.Resolve(next.Theme, next.Colors)
+		if err != nil {
+			return nil, err
+		}
+		km, err := next.KeyMap()
+		if err != nil {
+			return nil, err
+		}
+		active = next
+		mode, auto := layoutOf(next.Layout)
+		return &tui.Refresh{Palette: pal, Bind: km, Mode: mode, Auto: auto, Numbers: next.Numbers}, nil
+	}
+
+	resolve := func(name string) (*render.Palette, error) {
+		return theme.Resolve(name, active.Colors)
+	}
+
+	mode, auto := layoutOf(active.Layout)
+
+	opts := tui.Options{
+		Mode:    mode,
+		Auto:    auto,
+		Numbers: active.Numbers,
+		Palette: palette,
+		Bind:    keymap,
+		Repo:    repo,
+		Cache:   cache,
+		Watch:   active.Watch,
+		Reload: func() (*patch.ChangeSet, error) {
+			next, err := repo.Load(git.Options{Base: active.Base, Context: active.Context, Untracked: active.Untracked})
+			if err != nil {
+				return nil, err
+			}
+			return next, nil
+		},
+		Refresh: refresh,
+		Theme:   resolve,
+	}
+	if _, err := tea.NewProgram(tui.New(cs, opts), programOptions(stdinTTY)...).Run(); err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	return 0
+}
+
+func programOptions(stdinTTY bool) []tea.ProgramOption {
+	opts := []tea.ProgramOption{tea.WithAltScreen()}
 	if !stdinTTY {
 		// A patch arrived on stdin, so read keys from the terminal directly.
 		if f, err := os.Open("/dev/tty"); err == nil {
-			defer f.Close()
-			progOpts = append(progOpts, tea.WithInput(f))
+			opts = append(opts, tea.WithInput(f))
 		}
 	}
-	_, err := tea.NewProgram(model, progOpts...).Run()
-	return err
+	return opts
 }
 
-func writeStatic(cs *patch.ChangeSet, numbers bool, colorMode string, stdoutTTY bool, stdout io.Writer) {
+func layoutOf(name string) (layout.Mode, bool) {
+	switch name {
+	case "split":
+		return layout.Split, false
+	case "unified":
+		return layout.Unified, false
+	case "new":
+		return layout.New, false
+	}
+	return layout.Split, true
+}
+
+func writeStatic(cs *patch.ChangeSet, cfg *config.Config, colorMode string, stdoutTTY bool, stdout, stderr io.Writer) int {
 	useColor := false
 	switch colorMode {
 	case "always":
@@ -197,20 +297,172 @@ func writeStatic(cs *patch.ChangeSet, numbers bool, colorMode string, stdoutTTY 
 		for _, line := range render.PlainLines(cs, cs.Scope) {
 			fmt.Fprintln(stdout, line)
 		}
-		return
+		return 0
 	}
-	rows := layout.Build(cs, layout.Unified)
+	palette, err := theme.Resolve(cfg.Theme, cfg.Colors)
+	if err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
 	r := &render.Renderer{
-		Pal:     render.DetectPalette(),
+		Pal:     palette,
 		Width:   termWidth(os.Stdout),
 		Mode:    layout.Unified,
 		Depth:   render.DetectDepth(),
 		Prefix:  cs.Scope,
-		Numbers: numbers,
+		Numbers: cfg.Numbers,
 	}
-	for _, line := range r.Lines(rows) {
+	for _, line := range r.Lines(layout.Build(cs, layout.Unified)) {
 		fmt.Fprintln(stdout, line)
 	}
+	return 0
+}
+
+// command runs the subcommands that configure drift itself.
+func command(name string, args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("drift "+name, flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	configPath := fs.String("config", "", "config file")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+
+	switch name {
+	case "init":
+		return initConfig(*configPath, stdout, stderr)
+	case "config":
+		return showConfig(*configPath, stdout, stderr)
+	case "theme":
+		return themeCommand(fs.Args(), stdout, stderr)
+	}
+	return 2
+}
+
+func initConfig(configPath string, stdout, stderr io.Writer) int {
+	path, err := paths.ConfigFile(configPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	if _, err := os.Stat(path); err == nil {
+		fmt.Fprintf(stderr, "drift: %s already exists; edit it instead\n", path)
+		return 1
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	if err := os.WriteFile(path, []byte(config.Template()), 0o644); err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	themes, err := paths.ThemesDir()
+	if err == nil {
+		_ = os.MkdirAll(themes, 0o755)
+	}
+	fmt.Fprintf(stdout, "wrote %s\nthemes go in %s\n", path, themes)
+	return 0
+}
+
+func showConfig(configPath string, stdout, stderr io.Writer) int {
+	cfg, path, err := config.Load(configPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	palette, err := theme.Resolve(cfg.Theme, cfg.Colors)
+	if err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	_, statErr := os.Stat(path)
+	source := path
+	if statErr != nil {
+		source += " (missing, using defaults)"
+	}
+	fmt.Fprintf(stdout, "config  %s\n", source)
+	fmt.Fprintf(stdout, "theme   %s → %s background\n", cfg.Theme, backgroundName(palette))
+	fmt.Fprintf(stdout, "layout  %s\n", cfg.Layout)
+	fmt.Fprintf(stdout, "context %d\n", cfg.Context)
+	fmt.Fprintf(stdout, "numbers %v\n", cfg.Numbers)
+	fmt.Fprintf(stdout, "untracked %v\n", cfg.Untracked)
+	fmt.Fprintf(stdout, "watch   %v\n", cfg.Watch)
+	if cfg.Base != "" {
+		fmt.Fprintf(stdout, "base    %s\n", cfg.Base)
+	}
+	names, _ := theme.List()
+	fmt.Fprintf(stdout, "themes  %s\n", strings.Join(names, ", "))
+
+	km, err := cfg.KeyMap()
+	if err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	fmt.Fprintln(stdout, "\nkeys")
+	for _, action := range keys.All {
+		if len(km.Action[action]) == 0 {
+			continue
+		}
+		shown := make([]string, 0, len(km.Action[action]))
+		for _, k := range km.Action[action] {
+			shown = append(shown, keys.Display(k))
+		}
+		fmt.Fprintf(stdout, "  %-14s %s\n", action, strings.Join(shown, " "))
+	}
+	return 0
+}
+
+func backgroundName(p *render.Palette) string {
+	if p == nil {
+		return "unknown"
+	}
+	// The light palette's text colour is dark; that is the cheapest reliable
+	// way to describe which one is active.
+	if p.Text.R < 0x80 && p.Text.G < 0x80 && p.Text.B < 0x80 {
+		return "light"
+	}
+	return "dark"
+}
+
+func themeCommand(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		names, err := theme.List()
+		if err != nil {
+			fmt.Fprintf(stderr, "drift: %v\n", err)
+			return 2
+		}
+		for _, n := range names {
+			fmt.Fprintln(stdout, n)
+		}
+		return 0
+	}
+	name := args[0]
+	palette, err := theme.Resolve(name, theme.ColorSet{})
+	if err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	fmt.Fprintf(stdout, "# drift theme: %s\n", name)
+	fmt.Fprintf(stdout, "# Copy this to %s/themes/%s.toml and edit.\n\n", configDir(), name)
+	enc := toml.NewEncoder(stdout)
+	if err := enc.Encode(struct {
+		Colors theme.ColorSet `toml:"colors"`
+	}{theme.ToColorSet(palette)}); err != nil {
+		fmt.Fprintf(stderr, "drift: %v\n", err)
+		return 2
+	}
+	return 0
+}
+
+func configDir() string {
+	dir, err := paths.Dir()
+	if err != nil {
+		return "~/.config/drift"
+	}
+	return dir
 }
 
 func termWidth(f *os.File) int {
@@ -254,12 +506,17 @@ usage:
   git diff | drift         render a patch
   drift --list             one line per changed file
   drift --json             machine-readable change set
+  drift config             show the effective configuration
+  drift theme [name]       list themes, or print one as a theme file
+  drift init               write a commented starter config
 
 flags:
+  --config PATH       configuration file
   --base REF          revision to compare against (default: origin/HEAD, main, master)
   --context N         lines of context per hunk (default 3)
   --file PATH         show only this file
-  --mode MODE         initial layout: split, unified, new
+  --layout MODE       initial layout: auto, split, unified, new
+  --theme NAME        theme name, or a file in the themes directory
   --list              list changed files
   --json              emit JSON
   --plain             never start the interactive view
@@ -270,11 +527,13 @@ flags:
   --exit-code         exit 1 when there are changes
   --version           print the version
 
-keys (interactive):
+keys (interactive, rebindable in config):
   j k                 scroll          space b        page
-  n p                 next/prev file  } {            next/prev hunk
+  tab shift+tab       next / prev file
+  } {                 next / prev hunk
   s                   split → unified → new
-  /                   search          t              line numbers
+  /                   search          n N            next / prev match
+  :                   command         R              reload config
   ?                   help            q              quit
 `)
 }

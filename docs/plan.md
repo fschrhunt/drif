@@ -11,9 +11,10 @@ review UI would render it, using nothing but the terminal you already have.
 
 Six decisions follow from that sentence, and most of the code exists to keep them true:
 
-1. **Zero configuration.** No config file, no setup command, no profile, no daemon. The inputs are
-   the directory you are in and the repository's own state. A setting worth a flag someone types
-   twice a year is worth inferring instead.
+1. **Nothing to set up.** The defaults are the product: no `init`, no profile, no daemon. A config
+   file exists for the handful of choices worth remembering, and it is entirely optional — delete
+   it and drift still knows what to do. A setting worth a flag someone types twice a year is worth
+   inferring instead.
 2. **Borrow the host, never impose on it.** Colours come from the terminal. Nobody is asked to pick
    a theme, because the terminal was already themed.
 3. **One surface, not a file viewer.** The whole change set is a single scrollable document. That
@@ -24,8 +25,8 @@ Six decisions follow from that sentence, and most of the code exists to keep the
    plain text or JSON, in the `--list` then `--file` shape it already knows. There is no agent mode.
 6. **Render diffs; do not reimplement git.** Git decides what changed. drift owns how it looks.
 
-Anti-goals: a git client, a merge tool, a plugin host, a framework with an options object, a file
-browser.
+Anti-goals: a git client, a merge tool, a plugin host, a scripting surface, a file browser. The
+config is a flat file of choices; it does not run code.
 
 This document records the decisions that shape the code. Where it disagrees with a comment, the
 comment is probably stale; fix it.
@@ -160,7 +161,27 @@ schema (`version: 1`). `--context` passes through, so `--context 0` is the token
 This is deliberately the same shape as `git diff --stat` then `git diff -- path`, so an agent does
 not have to learn anything.
 
-## 10. Open questions
+## 10. Configuration
+
+The file is TOML, at `$XDG_CONFIG_HOME/drift/config.toml`, and it only ever holds values, never
+code. Precedence is defaults, then the file, then flags that were actually passed — `fs.Visit` is
+what makes "actually passed" knowable, so a flag left at its default never clobbers a configured
+value.
+
+Unknown keys are errors. A typo that silently does nothing is worse than a startup failure, and the
+same applies to unknown actions, unknown themes, unparseable colours and two actions fighting over
+one key.
+
+Key bindings are a map from action name to key list. Actions are the stable vocabulary; keys are
+the unstable part. Replacing an action's list replaces all of its keys, which is what
+`down = ["n"]` reads as. `keys.Map` keeps both directions so help can print bindings in the order
+they were written.
+
+The command line exists so the loop is edit, look, edit. `R` re-reads the config file and rebuilds
+the view in place; `:theme` re-resolves one theme without touching the file. That is the whole
+reason configuration is worth having in an interactive tool: the feedback is immediate.
+
+## 11. Open questions
 
 1. A file rail for changesets with dozens of files. `n`/`p` covers the common case, but a list is
    better when you cannot see the boundaries.
@@ -170,3 +191,7 @@ not have to learn anything.
    necessarily the revision that produced a piped patch, and colouring from the wrong file is
    worse than no colour.
 4. Inline image diffs through the kitty/iTerm graphics protocol.
+5. A project-local `.drift.toml`. Deliberately absent for now: a repository should not be able to
+   change how reviewing it feels, and the global file covers the real cases.
+6. Whether themes should be able to override the *structure* (gutters, separators), which is
+   currently fixed so every theme keeps the same geometry.

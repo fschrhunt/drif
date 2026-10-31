@@ -1,5 +1,6 @@
 // Package tui is drift's interactive review surface: a viewport over the same
-// rows the pager prints, plus navigation, search and layout toggles.
+// rows the pager prints, plus navigation, search, layout toggles and a command
+// line for changing the running configuration.
 package tui
 
 import (
@@ -11,20 +12,38 @@ import (
 
 	"github.com/fschrhunt/drift/internal/git"
 	"github.com/fschrhunt/drift/internal/highlight"
+	"github.com/fschrhunt/drift/internal/keys"
 	"github.com/fschrhunt/drift/internal/layout"
 	"github.com/fschrhunt/drift/internal/patch"
 	"github.com/fschrhunt/drift/internal/render"
 )
+
+// Refresh is a re-read of the configuration while the view is running, which
+// is what makes editing a theme file and pressing R work.
+type Refresh struct {
+	Palette *render.Palette
+	Bind    *keys.Map
+	Mode    layout.Mode
+	Auto    bool
+	Numbers bool
+}
 
 // Options configures the initial view.
 type Options struct {
 	Mode    layout.Mode
 	Auto    bool // choose split or unified from the terminal width
 	Numbers bool
+	Palette *render.Palette
+	Bind    *keys.Map
 	Repo    *git.Repo
 	Cache   *highlight.Cache
 	Watch   bool
-	Reload  func() (*patch.ChangeSet, error)
+	// Reload re-reads the working tree.
+	Reload func() (*patch.ChangeSet, error)
+	// Refresh re-reads the configuration.
+	Refresh func() (*Refresh, error)
+	// Theme resolves a theme name for :theme.
+	Theme func(string) (*render.Palette, error)
 }
 
 // Model is the bubbletea state.
@@ -35,6 +54,7 @@ type Model struct {
 
 	mode    layout.Mode
 	numbers bool
+	bind    *keys.Map
 
 	width, height int
 
@@ -49,6 +69,10 @@ type Model struct {
 	matches []int
 	matchAt int
 
+	cmdMode  bool
+	cmdInput string
+	message  string
+
 	help    bool
 	loading map[string]bool
 	wrapped map[int][][]render.Seg
@@ -59,6 +83,8 @@ type Model struct {
 	watchOn  bool
 	watch    *watcher
 	reload   func() (*patch.ChangeSet, error)
+	refresh  func() (*Refresh, error)
+	themefn  func(string) (*render.Palette, error)
 }
 
 type loadedMsg struct{ keys []string }
@@ -69,17 +95,28 @@ func New(cs *patch.ChangeSet, opts Options) *Model {
 	if opts.Repo != nil {
 		prefix = opts.Repo.Prefix
 	}
+	pal := opts.Palette
+	if pal == nil {
+		pal = render.DetectPalette()
+	}
+	bind := opts.Bind
+	if bind == nil {
+		bind, _ = keys.Build(nil)
+	}
 	return &Model{
 		cs:      cs,
 		cache:   opts.Cache,
 		mode:    opts.Mode,
 		numbers: opts.Numbers,
+		bind:    bind,
 		auto:    opts.Auto,
 		repo:    opts.Repo,
 		watchOn: opts.Watch,
 		reload:  opts.Reload,
+		refresh: opts.Refresh,
+		themefn: opts.Theme,
 		r: &render.Renderer{
-			Pal:     render.DetectPalette(),
+			Pal:     pal,
 			Mode:    opts.Mode,
 			Depth:   render.DetectDepth(),
 			Cache:   opts.Cache,
@@ -110,34 +147,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 		if m.auto && !m.userMode {
-			if m.width >= 100 {
-				m.mode = layout.Split
-			} else {
-				m.mode = layout.Unified
-			}
+			m.chooseAuto()
 		}
 		m.rebuild()
-		return m, m.requestVisible()
-
-	case reloadMsg:
-		if m.reload != nil {
-			idx := m.rowAt(m.top)
-			if cs, err := m.reload(); err == nil {
-				m.cs = cs
-				m.rebuild()
-				if m.cache != nil {
-					m.cache.Reset(cs.MergeBase)
-				}
-				m.loading = map[string]bool{}
-				if idx < len(m.starts) {
-					m.top = m.starts[idx]
-				}
-			}
-		}
-		m.wrapped = map[int][][]render.Seg{}
-		if w := m.watch; w != nil {
-			return m, w.wait()
-		}
 		return m, m.requestVisible()
 
 	case loadedMsg:
@@ -147,72 +159,107 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.wrapped = map[int][][]render.Seg{}
 		return m, m.requestVisible()
 
+	case reloadMsg:
+		m.reloadTree()
+		m.wrapped = map[int][][]render.Seg{}
+		if w := m.watch; w != nil {
+			return m, w.wait()
+		}
+		return m, m.requestVisible()
+
 	case tea.KeyMsg:
-		if m.typing {
+		switch {
+		case m.typing:
 			return m, m.typingKey(msg)
+		case m.cmdMode:
+			return m, m.commandKey(msg)
 		}
 		return m, m.key(msg)
 	}
 	return m, nil
 }
 
+func (m *Model) chooseAuto() {
+	if m.width >= 100 {
+		m.mode = layout.Split
+	} else {
+		m.mode = layout.Unified
+	}
+}
+
 func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
+	m.message = ""
+	if msg.String() == "esc" {
+		m.clearSearch()
+		m.help = false
+		return m.requestVisible()
+	}
+
+	action, ok := m.bind.Key[msg.String()]
+	if !ok {
+		return m.requestVisible()
+	}
 	body := m.bodyHeight()
-	switch msg.String() {
-	case "q", "ctrl+c":
+	switch action {
+	case keys.Quit:
 		return tea.Quit
-	case "j", "down":
+	case keys.Down:
 		m.scroll(1)
-	case "k", "up":
+	case keys.Up:
 		m.scroll(-1)
-	case "ctrl+d":
+	case keys.HalfDown:
 		m.scroll(body / 2)
-	case "ctrl+u":
+	case keys.HalfUp:
 		m.scroll(-body / 2)
-	case " ", "f", "pgdown":
+	case keys.PageDown:
 		m.scroll(body)
-	case "b", "pgup":
+	case keys.PageUp:
 		m.scroll(-body)
-	case "g", "home":
+	case keys.Top:
 		m.top = 0
-	case "G", "end":
+	case keys.Bottom:
 		m.top = m.maxTop()
-	case "n":
-		if m.query != "" {
-			m.jumpMatch(1)
-		} else {
-			m.jumpRow(layout.FileRow, 1)
-		}
-	case "N":
-		m.jumpMatch(-1)
-	case "p":
+	case keys.NextFile:
+		m.jumpRow(layout.FileRow, 1)
+	case keys.PrevFile:
 		m.jumpRow(layout.FileRow, -1)
-	case "}", "]":
+	case keys.NextHunk:
 		m.jumpRow(layout.HunkRow, 1)
-	case "{", "[":
+	case keys.PrevHunk:
 		m.jumpRow(layout.HunkRow, -1)
-	case "s":
+	case keys.CycleLayout:
 		m.userMode = true
 		m.setMode(m.mode.Next())
-	case "t":
+	case keys.ToggleNumbers:
 		m.numbers = !m.numbers
 		m.rebuild()
-	case "/":
+	case keys.Search:
 		m.typing = true
 		m.input = ""
-	case "?":
+	case keys.NextMatch:
+		m.jumpMatch(1)
+	case keys.PrevMatch:
+		m.jumpMatch(-1)
+	case keys.Help:
 		m.help = !m.help
-	case "esc":
-		if m.query != "" {
-			m.query = ""
-			m.r.Query = ""
-			m.matches = nil
-			m.wrapped = map[int][][]render.Seg{}
-		}
-		m.help = false
+	case keys.Command:
+		m.cmdMode = true
+		m.cmdInput = ""
+	case keys.Reload:
+		return m.reloadConfig()
 	}
 	m.clampTop()
 	return m.requestVisible()
+}
+
+func (m *Model) clearSearch() {
+	if m.query == "" {
+		return
+	}
+	m.query = ""
+	m.r.Query = ""
+	m.matches = nil
+	m.wrapped = map[int][][]render.Seg{}
 }
 
 func (m *Model) typingKey(msg tea.KeyMsg) tea.Cmd {
@@ -238,11 +285,153 @@ func (m *Model) typingKey(msg tea.KeyMsg) tea.Cmd {
 	case "ctrl+c":
 		return tea.Quit
 	default:
-		if msg.Type == tea.KeyRunes {
+		if msg.Type == tea.KeyRunes || msg.Type == tea.KeySpace {
 			m.input += string(msg.Runes)
 		}
 	}
 	return nil
+}
+
+func (m *Model) commandKey(msg tea.KeyMsg) tea.Cmd {
+	switch msg.String() {
+	case "esc":
+		m.cmdMode = false
+		m.cmdInput = ""
+	case "enter":
+		line := m.cmdInput
+		m.cmdMode = false
+		m.cmdInput = ""
+		return m.exec(line)
+	case "backspace":
+		if m.cmdInput != "" {
+			r := []rune(m.cmdInput)
+			m.cmdInput = string(r[:len(r)-1])
+		}
+	case "ctrl+c":
+		return tea.Quit
+	default:
+		if msg.Type == tea.KeyRunes || msg.Type == tea.KeySpace {
+			m.cmdInput += string(msg.Runes)
+		}
+	}
+	return nil
+}
+
+// exec runs one colon command. The set is deliberately small: everything that
+// changes the view, and nothing that changes the repository.
+func (m *Model) exec(line string) tea.Cmd {
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return nil
+	}
+	switch fields[0] {
+	case "q", "quit":
+		return tea.Quit
+
+	case "help", "h":
+		m.help = true
+
+	case "theme":
+		if len(fields) != 2 {
+			m.message = "usage: :theme <name>"
+			return nil
+		}
+		if m.themefn == nil {
+			m.message = "themes are unavailable when reading a piped patch"
+			return nil
+		}
+		pal, err := m.themefn(fields[1])
+		if err != nil {
+			m.message = err.Error()
+			return nil
+		}
+		m.r.Pal = pal
+		m.wrapped = map[int][][]render.Seg{}
+		m.message = "theme " + fields[1]
+
+	case "layout":
+		if len(fields) != 2 {
+			m.message = "usage: :layout split|unified|new"
+			return nil
+		}
+		switch fields[1] {
+		case "split":
+			m.setMode(layout.Split)
+		case "unified":
+			m.setMode(layout.Unified)
+		case "new":
+			m.setMode(layout.New)
+		default:
+			m.message = "usage: :layout split|unified|new"
+			return nil
+		}
+		m.userMode = true
+
+	case "numbers":
+		m.numbers = !m.numbers
+		m.rebuild()
+
+	case "reload", "e":
+		return m.reloadConfig()
+
+	default:
+		m.message = "unknown command: " + fields[0]
+	}
+	return nil
+}
+
+// reloadConfig re-reads the config file and applies it without losing the
+// place in the diff.
+func (m *Model) reloadConfig() tea.Cmd {
+	if m.refresh == nil {
+		m.message = "no config file to reload"
+		return nil
+	}
+	next, err := m.refresh()
+	if err != nil {
+		m.message = err.Error()
+		return nil
+	}
+	idx := m.rowAt(m.top)
+	m.r.Pal = next.Palette
+	m.bind = next.Bind
+	m.numbers = next.Numbers
+	m.auto = next.Auto
+	if next.Auto {
+		m.userMode = false
+		m.chooseAuto()
+	} else {
+		m.userMode = true
+		m.mode = next.Mode
+	}
+	m.rebuild()
+	if idx < len(m.starts) {
+		m.top = m.starts[idx]
+	}
+	m.message = "config reloaded"
+	return m.requestVisible()
+}
+
+// reloadTree re-reads the working tree, keeping the reader roughly in place.
+func (m *Model) reloadTree() {
+	if m.reload == nil {
+		return
+	}
+	idx := m.rowAt(m.top)
+	cs, err := m.reload()
+	if err != nil {
+		m.message = err.Error()
+		return
+	}
+	m.cs = cs
+	m.rebuild()
+	if m.cache != nil {
+		m.cache.Reset(cs.MergeBase)
+	}
+	m.loading = map[string]bool{}
+	if idx < len(m.starts) {
+		m.top = m.starts[idx]
+	}
 }
 
 func (m *Model) setMode(mode layout.Mode) {
@@ -464,13 +653,20 @@ func (m *Model) statusBar() string {
 	dim := render.Style{Fg: pal.Dim}
 	segs := []render.Seg{{Text: " ", Style: dim}}
 
-	if m.typing {
+	switch {
+	case m.cmdMode:
+		segs = append(segs,
+			render.Seg{Text: ":", Style: render.Style{Fg: pal.Accent, Bold: true}},
+			render.Seg{Text: m.cmdInput, Style: render.Style{Fg: pal.Text}},
+			render.Seg{Text: "▏", Style: render.Style{Fg: pal.Accent}},
+		)
+	case m.typing:
 		segs = append(segs,
 			render.Seg{Text: "/", Style: render.Style{Fg: pal.Text}},
 			render.Seg{Text: m.input, Style: render.Style{Fg: pal.Text}},
 			render.Seg{Text: "▏", Style: render.Style{Fg: pal.Accent}},
 		)
-	} else if m.query != "" {
+	case m.query != "":
 		pos := 0
 		if len(m.matches) > 0 {
 			pos = m.matchAt + 1
@@ -479,7 +675,9 @@ func (m *Model) statusBar() string {
 			Text:  fmt.Sprintf("/%s %d/%d  ", m.query, pos, len(m.matches)),
 			Style: render.Style{Fg: pal.Accent},
 		})
-	} else {
+	case m.message != "":
+		segs = append(segs, render.Seg{Text: m.message, Style: render.Style{Fg: pal.Accent}})
+	default:
 		row := layout.Row{}
 		if len(m.rows) > 0 {
 			row = m.rows[m.rowAt(m.top)]
@@ -497,50 +695,123 @@ func (m *Model) statusBar() string {
 		}
 	}
 
-	pct := 0
-	if m.maxTop() > 0 {
-		pct = m.top * 100 / m.maxTop()
+	var right []render.Seg
+	// A message or an open prompt gets the whole line: nothing is more useless
+	// than a diagnostic clipped in half by a scroll percentage.
+	if m.message == "" && !m.cmdMode && !m.typing {
+		pct := 0
+		if m.maxTop() > 0 {
+			pct = m.top * 100 / m.maxTop()
+		}
+		right = []render.Seg{
+			{Text: m.mode.String(), Style: dim},
+			{Text: " · ", Style: dim},
+			{Text: fmt.Sprintf("%d%%", pct), Style: dim},
+			{Text: " · ? help ", Style: dim},
+		}
 	}
-	right := []render.Seg{
-		{Text: m.mode.String(), Style: dim},
-		{Text: " · ", Style: dim},
-		{Text: fmt.Sprintf("%d%%", pct), Style: dim},
-		{Text: " · ? help ", Style: dim},
+	avail := m.r.Width - render.Width(right)
+	segs = clipSegs(segs, avail)
+	return render.ANSI(append(segs, right...), m.r.Depth)
+}
+
+// clipSegs truncates to w columns and marks the cut, so a long path or error
+// reads as truncated instead of as a broken tail.
+func clipSegs(segs []render.Seg, w int) []render.Seg {
+	if w <= 0 {
+		return nil
 	}
-	rightW := render.Width(right)
-	left := render.Fit(segs, m.r.Width-rightW, render.Style{})
-	return render.ANSI(append(left, right...), m.r.Depth)
+	if render.Width(segs) <= w {
+		return segs
+	}
+	out := render.Fit(segs[:len(segs):len(segs)], w-1, render.Style{})
+	out = append(out, render.Seg{Text: "…", Style: lastStyle(segs)})
+	return out
+}
+
+func lastStyle(segs []render.Seg) render.Style {
+	if len(segs) == 0 {
+		return render.Style{}
+	}
+	return segs[len(segs)-1].Style
+}
+
+// helpRows pairs the actions shown in help with a description. The keys come
+// from the live keymap, so rebinding changes the help too.
+var helpRows = []struct {
+	actions []string
+	what    string
+}{
+	{[]string{keys.Down, keys.Up}, "line"},
+	{[]string{keys.HalfDown, keys.HalfUp}, "half page"},
+	{[]string{keys.PageDown, keys.PageUp}, "page"},
+	{[]string{keys.Top, keys.Bottom}, "top / bottom"},
+	{[]string{keys.NextFile, keys.PrevFile}, "next / previous file"},
+	{[]string{keys.NextHunk, keys.PrevHunk}, "next / previous hunk"},
+	{[]string{keys.Search}, "search"},
+	{[]string{keys.NextMatch, keys.PrevMatch}, "next / previous match"},
+	{[]string{keys.CycleLayout}, "split → unified → new"},
+	{[]string{keys.ToggleNumbers}, "line numbers"},
+	{[]string{keys.Command}, "command"},
+	{[]string{keys.Reload}, "reload config"},
+	{[]string{keys.Help}, "help"},
+	{[]string{keys.Quit}, "quit"},
 }
 
 func (m *Model) helpView() string {
 	pal := m.r.Pal
-	lines := [][2]string{
-		{"j k ↓ ↑", "line"},
-		{"ctrl-d ctrl-u", "half page"},
-		{"space b", "page"},
-		{"g G", "top / bottom"},
-		{"n p", "next / previous file"},
-		{"} {", "next / previous hunk"},
-		{"/", "search"},
-		{"n N", "next / previous match (while searching)"},
-		{"s", "split → unified → new"},
-		{"t", "line numbers"},
-		{"esc", "clear search"},
-		{"q", "quit"},
-	}
 	var b strings.Builder
-	b.WriteString("\n")
-	fmt.Fprintf(&b, "  %s\n\n", render.ANSI([]render.Seg{{Text: "drift", Style: render.Style{Fg: pal.Accent, Bold: true}}}, m.r.Depth))
-	for _, l := range lines {
-		key := render.ANSI([]render.Seg{{Text: l[0], Style: render.Style{Fg: pal.Text, Bold: true}}}, m.r.Depth)
-		gap := 18 - render.Width([]render.Seg{{Text: l[0]}})
+	b.WriteString("\n  ")
+	b.WriteString(render.ANSI([]render.Seg{{Text: "drift", Style: render.Style{Fg: pal.Accent, Bold: true}}}, m.r.Depth))
+	b.WriteString("\n\n")
+	for _, row := range helpRows {
+		label := m.bindings(row.actions...)
+		gap := 28 - len(label)
 		if gap < 1 {
 			gap = 1
 		}
-		b.WriteString("  " + key + strings.Repeat(" ", gap) + render.ANSI([]render.Seg{{Text: l[1], Style: render.Style{Fg: pal.Dim}}}, m.r.Depth) + "\n")
+		b.WriteString("  ")
+		b.WriteString(render.ANSI([]render.Seg{{Text: label, Style: render.Style{Fg: pal.Text}}}, m.r.Depth))
+		b.WriteString(strings.Repeat(" ", gap))
+		b.WriteString(render.ANSI([]render.Seg{{Text: row.what, Style: render.Style{Fg: pal.Dim}}}, m.r.Depth))
+		b.WriteString("\n")
 	}
-	b.WriteString("\n  press ? to close\n")
+	b.WriteString("\n  ")
+	b.WriteString(render.ANSI([]render.Seg{{Text: ":theme <name>  :layout split|unified|new  :numbers  :reload  :q", Style: render.Style{Fg: pal.Dim}}}, m.r.Depth))
+	b.WriteString("\n\n  press ? to close\n")
 	return b.String()
 }
 
-func itoa(n int) string { return fmt.Sprintf("%d", n) }
+// bindings lists the keys currently bound to the given actions, in keymap
+// order, so help reflects a rebinding immediately.
+func (m *Model) bindings(actions ...string) string {
+	var out []string
+	for _, action := range actions {
+		for _, key := range m.bind.Action[action] {
+			out = append(out, keys.Display(key))
+		}
+	}
+	return strings.Join(out, " ")
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	var buf [20]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	if neg {
+		i--
+		buf[i] = '-'
+	}
+	return string(buf[i:])
+}

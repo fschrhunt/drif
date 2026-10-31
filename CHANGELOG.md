@@ -14,3 +14,12 @@
 - Pager mode for `git diff | drift` and `git config core.pager drift`; previously coloured patches
   are stripped before parsing.
 - `--watch` reloads the review surface as files change.
+- Configuration at `~/.config/drift/config.toml`: layout, context, numbers, base, watch and colour
+  overrides. `drift init` writes a commented starter file and `drift config` prints what is
+  actually in effect.
+- Themes: `~/.config/drift/themes/<name>.toml`, layered over a built-in with `extends`, so a theme
+  can be a single colour. `drift theme` lists them and `drift theme NAME` prints one as a file to
+  copy.
+- Every key is rebindable in `[keys]`, with conflicts reported instead of silently resolved.
+- A command line inside the viewer: `:theme`, `:layout`, `:numbers`, `:reload`, `:q`. `R` re-reads
+  the config from disk, so a theme can be edited and seen without restarting.
