@@ -62,7 +62,7 @@ type Model struct {
 	reload   func() (*patch.ChangeSet, error)
 }
 
-type loadedMsg struct{}
+type loadedMsg struct{ keys []string }
 
 // New builds the model for a change set.
 func New(cs *patch.ChangeSet, opts Options) *Model {
@@ -126,6 +126,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cs, err := m.reload(); err == nil {
 				m.cs = cs
 				m.rebuild()
+				if m.cache != nil {
+					m.cache.Reset(cs.MergeBase)
+				}
+				m.loading = map[string]bool{}
 				if idx < len(m.starts) {
 					m.top = m.starts[idx]
 				}
@@ -138,6 +142,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.requestVisible()
 
 	case loadedMsg:
+		for _, k := range msg.keys {
+			delete(m.loading, k)
+		}
 		m.wrapped = map[int][][]render.Seg{}
 		return m, m.requestVisible()
 
@@ -378,10 +385,11 @@ func (m *Model) requestVisible() tea.Cmd {
 			continue
 		}
 		add := func(old bool) {
-			if seen[highlight.Key(row.File, old)] || m.cache.Ready(row.File, old) {
+			key := highlight.Key(row.File, old)
+			if seen[key] || m.loading[key] || m.cache.Ready(row.File, old) {
 				return
 			}
-			seen[highlight.Key(row.File, old)] = true
+			seen[key] = true
 			need = append(need, req{row.File, old})
 		}
 		if m.mode == layout.Split {
@@ -398,14 +406,17 @@ func (m *Model) requestVisible() tea.Cmd {
 	if len(need) == 0 {
 		return nil
 	}
+	keys := make([]string, 0, len(need))
 	for _, n := range need {
-		m.loading[highlight.Key(n.f, n.old)] = true
+		key := highlight.Key(n.f, n.old)
+		m.loading[key] = true
+		keys = append(keys, key)
 	}
 	return func() tea.Msg {
 		for _, n := range need {
 			m.cache.Table(n.f, n.old)
 		}
-		return loadedMsg{}
+		return loadedMsg{keys: keys}
 	}
 }
 

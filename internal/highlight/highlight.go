@@ -52,12 +52,24 @@ type Cache struct {
 
 	mu     sync.Mutex
 	tables map[string]Table
+	gen    uint64
 }
 
 // New returns a cache that reads new-side content from the working tree and
 // old-side content from base.
 func New(repo *git.Repo, base string) *Cache {
 	return &Cache{repo: repo, base: base, tables: map[string]Table{}}
+}
+
+// Reset forgets every table, which is what a reload after a file changes
+// needs: the cache is keyed by path, so stale content would otherwise keep its
+// old colours.
+func (c *Cache) Reset(base string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.base = base
+	c.tables = map[string]Table{}
+	c.gen++
 }
 
 // Key identifies one side of one file.
@@ -88,29 +100,34 @@ func (c *Cache) Table(f *patch.File, old bool) Table {
 		c.mu.Unlock()
 		return t
 	}
+	base, gen := c.base, c.gen
 	c.mu.Unlock()
 
 	var t Table
-	if content, path, err := c.content(f, old); err == nil {
+	if content, path, err := c.content(base, f, old); err == nil {
 		t = tokenize(path, content)
 	}
 
 	c.mu.Lock()
-	if len(c.tables) >= cacheLimit {
-		c.tables = map[string]Table{}
+	// A reload may have landed while we were lexing; that table describes
+	// content nobody is looking at any more.
+	if c.gen == gen {
+		if len(c.tables) >= cacheLimit {
+			c.tables = map[string]Table{}
+		}
+		c.tables[k] = t
 	}
-	c.tables[k] = t
 	c.mu.Unlock()
 	return t
 }
 
-func (c *Cache) content(f *patch.File, old bool) ([]byte, string, error) {
+func (c *Cache) content(base string, f *patch.File, old bool) ([]byte, string, error) {
 	if old {
 		path := f.OldPath
 		if path == "" {
 			path = f.Path()
 		}
-		b, err := c.repo.Content(c.base, path)
+		b, err := c.repo.Content(base, path)
 		return b, path, err
 	}
 	b, err := c.repo.ReadWorkingTree(f.NewPath)
