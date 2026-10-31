@@ -31,6 +31,17 @@ jobs:
           ref: main
           persist-credentials: false
           fetch-depth: 0
+      - name: Check the release token can write
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          push=$(gh api "repos/$GH_REPO" --jq '.permissions.push' 2>/dev/null || true)
+          if [ "$push" != 'true' ]; then
+            echo "RELEASE_TOKEN cannot write to $GH_REPO." >&2
+            echo "Create a fine-grained token for this repository with Contents: read and write." >&2
+            exit 1
+          fi
       - name: Validate release and push its tag
         env:
           GH_TOKEN: ${{ github.token }}
