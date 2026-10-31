@@ -1,6 +1,6 @@
 # drif releases
 
-## Unreleased
+## v0.1.0 · 2026-10-31
 
 - First version. Run `drif` in a worktree to review everything changed since the merge base with
   the base branch, including untracked files.
