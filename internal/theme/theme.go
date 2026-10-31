@@ -27,12 +27,9 @@ type ColorSet struct {
 	Text   string `toml:"text"`
 	Dim    string `toml:"dim"`
 	Accent string `toml:"accent"`
-	Filler string `toml:"filler"`
 
 	FileFG string `toml:"file_fg"`
-	FileBG string `toml:"file_bg"`
 	HunkFG string `toml:"hunk_fg"`
-	HunkBG string `toml:"hunk_bg"`
 
 	AddFG       string `toml:"add_fg"`
 	AddBG       string `toml:"add_bg"`
@@ -113,12 +110,9 @@ func Apply(p *render.Palette, cs ColorSet) error {
 		{"text", cs.Text, func(c render.Color) { p.Text = c }},
 		{"dim", cs.Dim, func(c render.Color) { p.Dim = c }},
 		{"accent", cs.Accent, func(c render.Color) { p.Accent = c }},
-		{"filler", cs.Filler, func(c render.Color) { p.Filler = c }},
 
 		{"file_fg", cs.FileFG, func(c render.Color) { p.FileFg = c }},
-		{"file_bg", cs.FileBG, func(c render.Color) { p.FileBg = c }},
 		{"hunk_fg", cs.HunkFG, func(c render.Color) { p.HunkFg = c }},
-		{"hunk_bg", cs.HunkBG, func(c render.Color) { p.HunkBg = c }},
 
 		{"add_fg", cs.AddFG, func(c render.Color) { p.AddFg = c }},
 		{"add_bg", cs.AddBG, func(c render.Color) { p.AddBg = c }},
@@ -150,8 +144,8 @@ func ToColorSet(p *render.Palette) ColorSet {
 		return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)
 	}
 	return ColorSet{
-		Text: h(p.Text), Dim: h(p.Dim), Accent: h(p.Accent), Filler: h(p.Filler),
-		FileFG: h(p.FileFg), FileBG: h(p.FileBg), HunkFG: h(p.HunkFg), HunkBG: h(p.HunkBg),
+		Text: h(p.Text), Dim: h(p.Dim), Accent: h(p.Accent),
+		FileFG: h(p.FileFg), HunkFG: h(p.HunkFg),
 		AddFG: h(p.AddFg), AddBG: h(p.AddBg), AddEmphasis: h(p.AddEmphBg),
 		DelFG: h(p.DelFg), DelBG: h(p.DelBg), DelEmphasis: h(p.DelEmphBg),
 	}
