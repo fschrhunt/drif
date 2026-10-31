@@ -38,7 +38,6 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 	asJSON := fs.Bool("json", false, "emit the change set as JSON")
 	plain := fs.Bool("plain", false, "never start the interactive view")
 	forceTUI := fs.Bool("tui", false, "start the interactive view even when a patch is piped in")
-	theme := fs.String("theme", "auto", "colour theme: auto, dark or light")
 	color := fs.String("color", "auto", "colour: auto, always or never")
 	noNumbers := fs.Bool("no-numbers", false, "hide line numbers")
 	mode := fs.String("mode", "", "initial layout: split, unified or new")
@@ -124,7 +123,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 				}
 			}
 			opts := tui.Options{
-				Mode: m, Auto: auto, Numbers: !*noNumbers, Theme: *theme,
+				Mode: m, Auto: auto, Numbers: !*noNumbers,
 				Repo: repo, Cache: cache, Watch: *watch, Reload: reload,
 			}
 			if err := runTUI(cs, opts, stdinTTY); err != nil {
@@ -132,7 +131,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 				return 2
 			}
 		} else {
-			writeStatic(cs, !*noNumbers, *theme, *color, stdoutTTY, stdout)
+			writeStatic(cs, !*noNumbers, *color, stdoutTTY, stdout)
 		}
 	}
 
@@ -184,7 +183,7 @@ func runTUI(cs *patch.ChangeSet, opts tui.Options, stdinTTY bool) error {
 	return err
 }
 
-func writeStatic(cs *patch.ChangeSet, numbers bool, theme, colorMode string, stdoutTTY bool, stdout io.Writer) {
+func writeStatic(cs *patch.ChangeSet, numbers bool, colorMode string, stdoutTTY bool, stdout io.Writer) {
 	useColor := false
 	switch colorMode {
 	case "always":
@@ -202,7 +201,7 @@ func writeStatic(cs *patch.ChangeSet, numbers bool, theme, colorMode string, std
 	}
 	rows := layout.Build(cs, layout.Unified)
 	r := &render.Renderer{
-		Pal:     render.ThemeByName(theme),
+		Pal:     render.DetectPalette(),
 		Width:   termWidth(os.Stdout),
 		Mode:    layout.Unified,
 		Depth:   render.DetectDepth(),
@@ -265,7 +264,6 @@ flags:
   --json              emit JSON
   --plain             never start the interactive view
   --color WHEN        auto, always or never
-  --theme NAME        auto, dark or light
   --no-numbers        hide line numbers
   --no-untracked      ignore files git does not track
   --watch             reload when files change

@@ -4,6 +4,29 @@ A terminal diff viewer for a worktree. Run `drift` anywhere inside a repository 
 that changed from the base branch, as one continuous review surface. The same binary serves people
 and agents.
 
+## What this is
+
+One command, run inside a worktree, that shows you what you did there — rendered the way a good
+review UI would render it, using nothing but the terminal you already have.
+
+Six decisions follow from that sentence, and most of the code exists to keep them true:
+
+1. **Zero configuration.** No config file, no setup command, no profile, no daemon. The inputs are
+   the directory you are in and the repository's own state. A setting worth a flag someone types
+   twice a year is worth inferring instead.
+2. **Borrow the host, never impose on it.** Colours come from the terminal. Nobody is asked to pick
+   a theme, because the terminal was already themed.
+3. **One surface, not a file viewer.** The whole change set is a single scrollable document. That
+   is what separates a review surface from a pager.
+4. **Dead simple by default, capable when asked.** Bare `drift` means one thing. Everything else is
+   a keystroke, not a menu.
+5. **Two audiences, one model.** A person gets colour and layout; an agent gets the same rows as
+   plain text or JSON, in the `--list` then `--file` shape it already knows. There is no agent mode.
+6. **Render diffs; do not reimplement git.** Git decides what changed. drift owns how it looks.
+
+Anti-goals: a git client, a merge tool, a plugin host, a framework with an options object, a file
+browser.
+
 This document records the decisions that shape the code. Where it disagrees with a comment, the
 comment is probably stale; fix it.
 
@@ -112,12 +135,15 @@ plain", so the failure mode is dull, not broken.
 
 ## 8. Colour
 
-Structure uses the terminal's own 16 colours where possible; syntax uses truecolor only when
-`COLORTERM` says so, with a 256-colour fallback. Two themes ship, because a background-tinted band
-looks wrong on the opposite background. `auto` reads `COLORFGBG` and otherwise assumes dark.
+Two palettes ship, one for dark backgrounds and one for light, and drift picks between them from
+`COLORFGBG` when the terminal exports it, otherwise by asking the terminal for its background
+(OSC 11), and otherwise by assuming dark. There is no theme option on purpose: the terminal is already themed, and a viewer that asks
+the user to describe their own screen has failed at the one thing it can see for free.
 
-Never assume a background colour for text that is not part of a band. That is the terminal
-equivalent of adapting to the host theme.
+Structure uses the terminal's own colours where possible; syntax uses truecolor only when
+`COLORTERM` says so, with a 256-colour fallback. Never assume a background colour for text that is
+not part of a band — that is the terminal equivalent of adapting to the host theme, and it is why
+the output blends instead of fighting you.
 
 ## 9. Agent contract
 

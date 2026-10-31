@@ -56,7 +56,9 @@ base branch after you branched. Everything under the current directory is in sco
 The base is found from `--base`, `$DRIFT_BASE`, `git config drift.base`, `origin/HEAD`,
 `origin/main`, `origin/master`, `main`, then `master`.
 
-Nothing needs configuring. If the base is wrong, `drift --base <ref>` tells it once.
+Nothing needs configuring. If the base is wrong, `drift --base <ref>` tells it once. Colour comes
+from your terminal: drift asks it whether the background is dark or light and picks the matching
+palette, so there is no theme to set.
 
 ## Keys
 

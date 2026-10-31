@@ -19,7 +19,7 @@
   parser tests enumerate every awkward shape git can emit.
 - `internal/layout/`: rows, split pairing, word-level emphasis. Width-independent by design.
 - `internal/highlight/`: Chroma lexing per file, trimmed to the lines a diff shows, cached.
-- `internal/render/`: theme, ANSI encoding, width maths, plain text, list output, JSON.
+- `internal/render/`: palette detection, ANSI encoding, width maths, plain text, list output, JSON.
 - `internal/tui/`: the bubbletea model and the fsnotify watcher behind `--watch`.
 - `test/`: no directory yet; parser fixtures live beside the parser they exercise.
 

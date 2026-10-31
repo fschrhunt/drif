@@ -39,7 +39,6 @@ func newModel(mode layout.Mode) *Model {
 	m := New(fixture(), Options{
 		Mode:    mode,
 		Numbers: true,
-		Theme:   "dark",
 		Repo:    &git.Repo{},
 	})
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})

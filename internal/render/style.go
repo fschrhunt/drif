@@ -30,19 +30,6 @@ func DetectDepth() Depth {
 	return ANSI256
 }
 
-// colorFGBGSaysLight reports whether the terminal told us it has a light
-// background. Only some terminals set this, which is why "auto" defaults to
-// dark.
-func colorFGBGSaysLight() bool {
-	v := os.Getenv("COLORFGBG")
-	i := strings.LastIndexByte(v, ';')
-	if i < 0 || i+1 >= len(v) {
-		return false
-	}
-	n, err := strconv.Atoi(v[i+1:])
-	return err == nil && n > 6 && n < 16
-}
-
 // Style is a terminal attribute set. Zero value renders nothing.
 type Style struct {
 	Fg, Bg    Color

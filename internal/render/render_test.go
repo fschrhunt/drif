@@ -61,3 +61,25 @@ func TestJSONKeepsTabsAndReportsCounts(t *testing.T) {
 		}
 	}
 }
+
+func TestColorFGBGDecidesThePalette(t *testing.T) {
+	cases := []struct {
+		value string
+		light bool
+		ok    bool
+	}{
+		{"15;0", false, true},      // black background
+		{"0;15", true, true},       // white background
+		{"0;7", true, true},        // light grey background
+		{"0;8", false, true},       // bright black is still dark
+		{"", false, false},         // unset
+		{"nonsense", false, false}, // unparseable
+	}
+	for _, c := range cases {
+		t.Setenv("COLORFGBG", c.value)
+		light, ok := colorFGBG()
+		if light != c.light || ok != c.ok {
+			t.Errorf("colorFGBG(%q) = %v,%v want %v,%v", c.value, light, ok, c.light, c.ok)
+		}
+	}
+}

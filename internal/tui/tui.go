@@ -21,7 +21,6 @@ type Options struct {
 	Mode    layout.Mode
 	Auto    bool // choose split or unified from the terminal width
 	Numbers bool
-	Theme   string
 	Repo    *git.Repo
 	Cache   *highlight.Cache
 	Watch   bool
@@ -80,7 +79,7 @@ func New(cs *patch.ChangeSet, opts Options) *Model {
 		watchOn: opts.Watch,
 		reload:  opts.Reload,
 		r: &render.Renderer{
-			Pal:     render.ThemeByName(opts.Theme),
+			Pal:     render.DetectPalette(),
 			Mode:    opts.Mode,
 			Depth:   render.DetectDepth(),
 			Cache:   opts.Cache,

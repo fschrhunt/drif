@@ -3,7 +3,15 @@
 // they cannot drift apart.
 package render
 
-import "github.com/fschrhunt/drift/internal/highlight"
+import (
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/fschrhunt/drift/internal/highlight"
+)
 
 // Color is an optional RGB colour. An unset colour means "leave whatever the
 // terminal is already using", which is how drift adapts to a user's theme.
@@ -38,11 +46,9 @@ func Hex(s string) Color {
 // ClassCount is the number of highlight classes a palette assigns colours to.
 const ClassCount = int(highlight.Error) + 1
 
-// Palette is one theme's colours. Structural colours (headers, gutters) come
-// from the theme; syntax colours are only applied to tokenised text.
+// Palette is one background's colours. Structural colours (headers, gutters)
+// come from the palette; syntax colours are only applied to tokenised text.
 type Palette struct {
-	Name string
-
 	Text   Color
 	Dim    Color
 	Accent Color
@@ -63,11 +69,10 @@ type Palette struct {
 	Syntax [ClassCount]Color
 }
 
-// Dark is the default theme: muted structure, syntax colour, and tinted bands
-// on changed lines.
+// Dark suits terminals with a dark background: muted structure, syntax colour,
+// and tinted bands on changed lines.
 func Dark() *Palette {
 	p := &Palette{
-		Name:      "dark",
 		Text:      Hex("#c9d1d9"),
 		Dim:       Hex("#6e7681"),
 		Accent:    Hex("#a371f7"),
@@ -98,10 +103,9 @@ func Dark() *Palette {
 	return p
 }
 
-// Light is for terminals with a light background.
+// Light suits terminals with a light background.
 func Light() *Palette {
 	p := &Palette{
-		Name:      "light",
 		Text:      Hex("#1f2328"),
 		Dim:       Hex("#6e7781"),
 		Accent:    Hex("#8250df"),
@@ -132,17 +136,40 @@ func Light() *Palette {
 	return p
 }
 
-// ThemeByName returns the named palette. "auto" picks light only when the
-// terminal advertises a light background through COLORFGBG.
-func ThemeByName(name string) *Palette {
-	switch name {
-	case "light":
-		return Light()
-	case "dark":
+// DetectPalette returns the palette for the terminal drift is drawing into.
+// There is deliberately no way to choose: the terminal already knows, and a
+// viewer that asks the user to describe their own screen has failed at the one
+// thing it can see for free.
+//
+// COLORFGBG wins when it is set, because it is the terminal's own statement of
+// its colours and it is cheap to read. Otherwise the background is asked of the
+// terminal directly, and a terminal that will not answer is assumed dark, where
+// a light palette would be unreadable.
+func DetectPalette() *Palette {
+	if light, ok := colorFGBG(); ok {
+		if light {
+			return Light()
+		}
 		return Dark()
 	}
-	if colorFGBGSaysLight() {
-		return Light()
+	if lipgloss.HasDarkBackground() {
+		return Dark()
 	}
-	return Dark()
+	return Light()
+}
+
+// colorFGBG decodes the de facto COLORFGBG convention, "foreground;background",
+// where the background is one of the sixteen ANSI colours. 7 and 9-15 are light;
+// 8, the bright black, is a dark grey and is treated as dark.
+func colorFGBG() (light bool, ok bool) {
+	v := os.Getenv("COLORFGBG")
+	i := strings.LastIndexByte(v, ';')
+	if i < 0 || i+1 >= len(v) {
+		return false, false
+	}
+	n, err := strconv.Atoi(v[i+1:])
+	if err != nil {
+		return false, false
+	}
+	return n == 7 || n >= 9, true
 }
