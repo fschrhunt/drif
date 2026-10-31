@@ -5,7 +5,8 @@
 - First version. Run `drif` in a worktree to review everything changed since the merge base with
   the base branch, including untracked files.
 - Three layouts: side-by-side comparison, unified, and result-only. One key cycles them.
-- A monochrome palette: only additions and deletions carry colour. The file header is pinned to the
+- A monochrome palette: only additions and deletions carry colour, and only changed lines paint a
+  background. Headers, hunk separators and metadata are text on the terminal's own background. The file header is pinned to the
   top and follows the file you are reading; there is no status line unless you are searching,
   typing a command, or reading an error.
 - Word-level emphasis inside changed line pairs, so a one-character edit reads as a one-character

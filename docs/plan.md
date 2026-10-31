@@ -147,8 +147,10 @@ Two palettes ship, one for dark backgrounds and one for light, and drif picks be
 the user to describe their own screen has failed at the one thing it can see for free.
 
 The palette is monochrome apart from green and red. Everything structural — gutters, headers,
-hunk separators, metadata — is a shade of grey, and truecolor is used only when `COLORTERM`
-says so, with a 256-colour fallback. Never assume a background colour for text that is
+hunk separators, metadata — is a shade of grey with no background of its own: a header is a
+label, not a surface, and a band there competes with the bands that mark changed lines. Only
+added and removed lines paint a background. Truecolor is used only when `COLORTERM` says so,
+with a 256-colour fallback. Never assume a background colour for text that is
 not part of a band — that is the terminal equivalent of adapting to the host theme, and it is why
 the output blends instead of fighting you.
 

@@ -59,10 +59,7 @@ type Palette struct {
 	DelEmphBg Color
 
 	HunkFg Color
-	HunkBg Color
 	FileFg Color
-	FileBg Color
-	Filler Color
 }
 
 // Dark suits terminals with a dark background.
@@ -78,10 +75,7 @@ func Dark() *Palette {
 		DelBg:     Hex("#1e1113"),
 		DelEmphBg: Hex("#4a1e22"),
 		HunkFg:    Hex("#8a8a8a"),
-		HunkBg:    Hex("#121212"),
 		FileFg:    Hex("#e6e6e6"),
-		FileBg:    Hex("#191919"),
-		Filler:    Hex("#0d0d0d"),
 	}
 }
 
@@ -98,10 +92,7 @@ func Light() *Palette {
 		DelBg:     Hex("#fdeff0"),
 		DelEmphBg: Hex("#ffd5d8"),
 		HunkFg:    Hex("#6e6e6e"),
-		HunkBg:    Hex("#f0f0f0"),
 		FileFg:    Hex("#111111"),
-		FileBg:    Hex("#f6f6f6"),
-		Filler:    Hex("#f0f0f0"),
 	}
 }
 

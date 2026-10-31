@@ -85,9 +85,11 @@ func (r *Renderer) Height(row layout.Row) int {
 	return (w + r.Width - 1) / r.Width
 }
 
+// fileSegs draws a file header. It is text on the terminal's own background:
+// a header is a label, not a surface, and a band here would compete with the
+// bands that mark changed lines.
 func (r *Renderer) fileSegs(f *patch.File) []Seg {
-	bg := Style{Bg: r.Pal.FileBg}
-	left := []Seg{{Text: " ", Style: bg}}
+	left := []Seg{{Text: " ", Style: Style{}}}
 
 	path := expand.Expand(strings.TrimPrefix(f.Path(), r.Prefix))
 	dir, base := path, ""
@@ -95,26 +97,26 @@ func (r *Renderer) fileSegs(f *patch.File) []Seg {
 		dir, base = path[:i+1], path[i+1:]
 	}
 	if dir != "" {
-		left = append(left, Seg{Text: dir, Style: Style{Fg: r.Pal.Dim, Bg: r.Pal.FileBg}})
+		left = append(left, Seg{Text: dir, Style: Style{Fg: r.Pal.Dim}})
 	}
-	left = append(left, Seg{Text: base, Style: Style{Fg: r.Pal.FileFg, Bg: r.Pal.FileBg, Bold: true}})
+	left = append(left, Seg{Text: base, Style: Style{Fg: r.Pal.FileFg, Bold: true}})
 	if f.Status != patch.Modified {
-		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.FileFg, Bg: r.Pal.FileBg, Bold: true}})
+		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.FileFg, Bold: true}})
 	}
 
 	right := make([]Seg, 0, 4)
 	if f.Additions > 0 {
-		right = append(right, Seg{Text: "+" + strconv.Itoa(f.Additions), Style: Style{Fg: r.Pal.AddFg, Bg: r.Pal.FileBg}})
+		right = append(right, Seg{Text: "+" + strconv.Itoa(f.Additions), Style: Style{Fg: r.Pal.AddFg}})
 	}
 	if f.Deletions > 0 {
 		if len(right) > 0 {
-			right = append(right, Seg{Text: " ", Style: bg})
+			right = append(right, Seg{Text: " ", Style: Style{}})
 		}
-		right = append(right, Seg{Text: "-" + strconv.Itoa(f.Deletions), Style: Style{Fg: r.Pal.DelFg, Bg: r.Pal.FileBg}})
+		right = append(right, Seg{Text: "-" + strconv.Itoa(f.Deletions), Style: Style{Fg: r.Pal.DelFg}})
 	}
-	right = append(right, Seg{Text: " ", Style: bg})
+	right = append(right, Seg{Text: " ", Style: Style{}})
 
-	return r.joinBand(left, right, bg)
+	return r.joinBand(left, right, Style{})
 }
 
 // joinBand places left and right text on one full-width band, filling the gap
@@ -138,21 +140,19 @@ func (r *Renderer) joinBand(left, right []Seg, fill Style) []Seg {
 }
 
 func (r *Renderer) metaSegs(row layout.Row) []Seg {
-	bg := Style{Bg: r.Pal.FileBg}
 	segs := []Seg{
-		{Text: "  ", Style: bg},
-		{Text: row.Text, Style: Style{Fg: r.Pal.Dim, Bg: r.Pal.FileBg}},
+		{Text: "  ", Style: Style{}},
+		{Text: row.Text, Style: Style{Fg: r.Pal.Dim}},
 	}
-	return Fit(segs, r.Width, bg)
+	return Fit(segs, r.Width, Style{})
 }
 
 func (r *Renderer) hunkSegs(row layout.Row) []Seg {
-	bg := Style{Bg: r.Pal.HunkBg}
 	segs := []Seg{
-		{Text: " ", Style: bg},
-		{Text: row.Text, Style: Style{Fg: r.Pal.HunkFg, Bg: r.Pal.HunkBg}},
+		{Text: " ", Style: Style{}},
+		{Text: row.Text, Style: Style{Fg: r.Pal.HunkFg}},
 	}
-	return Fit(segs, r.Width, bg)
+	return Fit(segs, r.Width, Style{})
 }
 
 func (r *Renderer) unifiedSegs(row layout.Row) []Seg {
@@ -211,7 +211,7 @@ func (r *Renderer) unifiedFromSplit(row layout.Row) []Seg {
 
 func (r *Renderer) cellSegs(f *patch.File, c *layout.Cell, old bool, w, gutter int) []Seg {
 	if c == nil {
-		return []Seg{{Text: strings.Repeat(" ", w), Style: Style{Bg: r.Pal.Filler}}}
+		return []Seg{{Text: strings.Repeat(" ", w), Style: Style{}}}
 	}
 	base := r.baseStyle(signOf(c.Kind))
 	segs := make([]Seg, 0, 8)

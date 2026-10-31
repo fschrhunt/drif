@@ -517,7 +517,16 @@ func (m *Model) rowAt(line int) int {
 
 func (m *Model) jumpRow(kind layout.Kind, dir int) {
 	cur := m.rowAt(m.top)
-	for i := cur + dir; i >= 0 && i < len(m.rows); i += dir {
+	start := cur + dir
+	if kind == layout.FileRow && dir < 0 {
+		// Walking back from a file's first hunk finds that file's own header
+		// first. Step over it so "previous file" means the previous one.
+		for start >= 0 && m.rows[start].Kind != layout.FileRow {
+			start--
+		}
+		start--
+	}
+	for i := start; i >= 0 && i < len(m.rows); i += dir {
 		if m.rows[i].Kind == kind {
 			m.top = m.starts[i]
 			m.clampTop()
