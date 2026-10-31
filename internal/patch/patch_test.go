@@ -253,3 +253,20 @@ func TestUntrackedFile(t *testing.T) {
 		t.Errorf("binary = %+v", b)
 	}
 }
+
+func TestParseStripsOnlyGitColouring(t *testing.T) {
+	src := "diff --git a/f b/f\n--- a/f\n+++ b/f\n" +
+		"@@ -1 +1 @@\n" +
+		"\x1b[31m-evil \x1b[0m\n" +
+		"\x1b[32m+evil \x1b]52;c;aGk=\x07\x1b[1;2J\n"
+	f := parse(t, src)[0]
+	lines := f.Hunks[0].Lines
+	if lines[0].Text != "evil " {
+		t.Fatalf("del line = %q", lines[0].Text)
+	}
+	// The file's own escapes must survive parsing; the renderer neutralises
+	// them. Deleting them here would quietly change what the patch says.
+	if got := lines[1].Text; got != "evil \x1b]52;c;aGk=\x07\x1b[1;2J" {
+		t.Fatalf("add line = %q", got)
+	}
+}

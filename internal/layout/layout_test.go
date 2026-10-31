@@ -82,15 +82,6 @@ func TestInlineGivesUpOnUnrelatedLines(t *testing.T) {
 	}
 }
 
-func TestExpandTabs(t *testing.T) {
-	if got := Expand("\tx\t"); got != "    x    " {
-		t.Fatalf("Expand = %q", got)
-	}
-	if got := Expand("plain"); got != "plain" {
-		t.Fatalf("Expand = %q", got)
-	}
-}
-
 func TestHunkHeader(t *testing.T) {
 	h := patch.Hunk{OldStart: 1, OldCount: 3, NewStart: 1, NewCount: 4, Section: "func main()"}
 	if got := HunkHeader(&h); got != "@@ -1,3 +1,4 @@ func main()" {

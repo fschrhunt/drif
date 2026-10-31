@@ -10,6 +10,7 @@ import (
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/fschrhunt/drif/internal/expand"
 	"github.com/fschrhunt/drif/internal/git"
 	"github.com/fschrhunt/drif/internal/patch"
 )
@@ -135,7 +136,7 @@ func (c *Cache) content(base string, f *patch.File, old bool) ([]byte, string, e
 }
 
 func tokenize(path string, content []byte) Table {
-	text := string(expandTabs(content))
+	text := string(expand.Bytes(content))
 	lexer := lexers.Match(path)
 	if lexer == nil {
 		lexer = lexers.Analyse(text)
@@ -208,26 +209,4 @@ func classOf(t chroma.TokenType) Class {
 		return Punctuation
 	}
 	return Text
-}
-
-// tabWidth is how many columns a tab occupies. Source that indents with tabs
-// would otherwise jump to the terminal's tab stops after the gutter, which
-// makes every indentation level look distorted.
-const tabWidth = 4
-
-// expandTabs replaces tabs with spaces. Line content and syntax spans both go
-// through it, so byte offsets stay consistent.
-func expandTabs(b []byte) []byte {
-	if !strings.ContainsRune(string(b), '\t') {
-		return b
-	}
-	out := make([]byte, 0, len(b)+len(b)/4)
-	for _, c := range b {
-		if c == '\t' {
-			out = append(out, ' ', ' ', ' ', ' ')
-			continue
-		}
-		out = append(out, c)
-	}
-	return out
 }

@@ -83,3 +83,24 @@ func TestColorFGBGDecidesThePalette(t *testing.T) {
 		}
 	}
 }
+
+func TestPlainOutputNeutralisesTerminalEscapes(t *testing.T) {
+	cs := changeset()
+	cs.Files[0].Hunks[0].Lines[2].Text = "evil\x1b]52;c;aGk=\x07 \x1b[2J"
+	got := strings.Join(PlainLines(cs, ""), "\n")
+	if strings.ContainsAny(got, "\x1b\x07") {
+		t.Fatalf("plain output still carries terminal control bytes: %q", got)
+	}
+	if !strings.Contains(got, "␛") {
+		t.Fatalf("escape was not made visible: %q", got)
+	}
+}
+
+func TestListOutputNeutralisesPaths(t *testing.T) {
+	cs := changeset()
+	cs.Files[0].NewPath = "evil\x1b[2Jname.go"
+	got := strings.Join(ListLines(cs, ""), "\n")
+	if strings.Contains(got, "\x1b") {
+		t.Fatalf("list output carries an escape: %q", got)
+	}
+}

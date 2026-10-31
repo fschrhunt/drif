@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/fschrhunt/drif/internal/expand"
 	"github.com/fschrhunt/drif/internal/git"
 	"github.com/fschrhunt/drif/internal/highlight"
 	"github.com/fschrhunt/drif/internal/keys"
@@ -683,7 +684,7 @@ func (m *Model) statusBar() string {
 			row = m.rows[m.rowAt(m.top)]
 		}
 		if row.File != nil {
-			path := strings.TrimPrefix(row.File.Path(), m.r.Prefix)
+			path := expand.Expand(strings.TrimPrefix(row.File.Path(), m.r.Prefix))
 			segs = append(segs, render.Seg{Text: path, Style: render.Style{Fg: pal.Text}})
 			if row.File.Additions > 0 {
 				segs = append(segs, render.Seg{Text: " +" + itoa(row.File.Additions), Style: render.Style{Fg: pal.AddFg}})

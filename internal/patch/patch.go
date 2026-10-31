@@ -167,22 +167,26 @@ func (p *parser) readLine() (string, error) {
 	return s, err
 }
 
-// stripANSI removes CSI escape sequences such as colour changes.
+// stripANSI removes only the SGR colour sequences git emits, never other
+// escapes. A file's own content may legitimately contain ESC, and the renderer
+// is what makes that visible; deleting it here would silently alter the patch
+// and still let anything that is not a colour code through.
 func stripANSI(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
-		if s[i] != 0x1b || i+1 >= len(s) {
+		if s[i] != 0x1b || i+1 >= len(s) || s[i+1] != '[' {
 			b.WriteByte(s[i])
 			continue
 		}
-		if s[i+1] == '[' {
-			i += 2
-			for i < len(s) && !(s[i] >= '@' && s[i] <= '~') {
-				i++
-			}
+		j := i + 2
+		for j < len(s) && !(s[j] >= '@' && s[j] <= '~') {
+			j++
+		}
+		if j < len(s) && s[j] == 'm' {
+			i = j // drop the whole colour sequence
 			continue
 		}
-		i++
+		b.WriteByte(s[i])
 	}
 	return b.String()
 }

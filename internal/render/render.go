@@ -7,6 +7,7 @@ import (
 
 	"github.com/mattn/go-runewidth"
 
+	"github.com/fschrhunt/drif/internal/expand"
 	"github.com/fschrhunt/drif/internal/highlight"
 	"github.com/fschrhunt/drif/internal/layout"
 	"github.com/fschrhunt/drif/internal/patch"
@@ -94,7 +95,7 @@ func (r *Renderer) fileSegs(f *patch.File) []Seg {
 	bg := Style{Bg: r.Pal.FileBg}
 	left := []Seg{{Text: " ", Style: bg}}
 
-	path := strings.TrimPrefix(f.Path(), r.Prefix)
+	path := expand.Expand(strings.TrimPrefix(f.Path(), r.Prefix))
 	dir, base := path, ""
 	if i := strings.LastIndexByte(path, '/'); i >= 0 {
 		dir, base = path[:i+1], path[i+1:]

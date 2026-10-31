@@ -7,10 +7,10 @@ package layout
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/fschrhunt/drif/internal/expand"
 	"github.com/fschrhunt/drif/internal/patch"
 )
 
@@ -132,7 +132,7 @@ func fileRows(f *patch.File, mode Mode) []Row {
 				no = o.line.OldNo
 			}
 			rows = append(rows, Row{
-				Kind: LineRow, File: f, Hunk: h, Text: Expand(o.line.Text),
+				Kind: LineRow, File: f, Hunk: h, Text: expand.Expand(o.line.Text),
 				Sign: sign, No: no, Emph: o.emph, Gutter: gutter,
 			})
 		}
@@ -180,7 +180,7 @@ func walk(h *patch.Hunk) []op {
 			delEmph := make([][]Span, len(dels))
 			addEmph := make([][]Span, len(adds))
 			for k := 0; k < len(dels) && k < len(adds); k++ {
-				delEmph[k], addEmph[k] = inline(Expand(dels[k].Text), Expand(adds[k].Text))
+				delEmph[k], addEmph[k] = inline(expand.Expand(dels[k].Text), expand.Expand(adds[k].Text))
 			}
 			for k := range dels {
 				ops = append(ops, op{kind: patch.Del, line: dels[k], emph: delEmph[k]})
@@ -199,7 +199,7 @@ func splitRows(f *patch.File, ops []op, gutter int) []Row {
 	for i < len(ops) {
 		if ops[i].kind == patch.Context {
 			o := ops[i]
-			text := Expand(o.line.Text)
+			text := expand.Expand(o.line.Text)
 			rows = append(rows, Row{
 				Kind: LineRow, File: f, Gutter: gutter,
 				Left:  &Cell{No: o.line.OldNo, Text: text, Kind: patch.Context},
@@ -226,11 +226,11 @@ func splitRows(f *patch.File, ops []op, gutter int) []Row {
 			r := Row{Kind: LineRow, File: f, Gutter: gutter}
 			if k < len(dels) {
 				d := dels[k]
-				r.Left = &Cell{No: d.line.OldNo, Text: Expand(d.line.Text), Kind: patch.Del, Emph: d.emph}
+				r.Left = &Cell{No: d.line.OldNo, Text: expand.Expand(d.line.Text), Kind: patch.Del, Emph: d.emph}
 			}
 			if k < len(adds) {
 				a := adds[k]
-				r.Right = &Cell{No: a.line.NewNo, Text: Expand(a.line.Text), Kind: patch.Add, Emph: a.emph}
+				r.Right = &Cell{No: a.line.NewNo, Text: expand.Expand(a.line.Text), Kind: patch.Add, Emph: a.emph}
 			}
 			rows = append(rows, r)
 		}
@@ -281,29 +281,6 @@ func MetaLines(f *patch.File) []string {
 		out = append(out, f.Note)
 	}
 	return out
-}
-
-// TabWidth is how many columns a tab occupies. Source that indents with tabs
-// would otherwise jump to the terminal's tab stops after the gutter, which
-// makes every indentation level look distorted.
-const TabWidth = 4
-
-// Expand replaces tabs with spaces. Line content and syntax spans are both
-// expanded, so byte offsets stay consistent between them.
-func Expand(s string) string {
-	if !strings.ContainsRune(s, '\t') {
-		return s
-	}
-	var b strings.Builder
-	b.Grow(len(s) + len(s)/4)
-	for _, c := range s {
-		if c == '\t' {
-			b.WriteString("    ")
-			continue
-		}
-		b.WriteRune(c)
-	}
-	return b.String()
 }
 
 // inline marks the byte ranges of a and b that differ, at word granularity.

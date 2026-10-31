@@ -3,14 +3,16 @@ package render
 import (
 	"strings"
 
+	"github.com/fschrhunt/drif/internal/expand"
 	"github.com/fschrhunt/drif/internal/layout"
 	"github.com/fschrhunt/drif/internal/patch"
 )
 
 // PlainLines renders a change set as uncoloured text: the shape an agent or a
-// pipe wants. It reads the patch directly rather than the laid-out rows so tabs
-// and line content stay byte-for-byte as git produced them, which is what makes
-// the output greppable and comparable.
+// pipe wants. It reads the patch directly rather than the laid-out rows, so
+// tabs and line content stay as git produced them; the only change is that
+// terminal control characters are made visible, because a pipe can still end up
+// on a terminal.
 func PlainLines(cs *patch.ChangeSet, prefix string) []string {
 	out := make([]string, 0, len(cs.Files)*8)
 	for _, f := range cs.Files {
@@ -21,13 +23,14 @@ func PlainLines(cs *patch.ChangeSet, prefix string) []string {
 		for _, h := range f.Hunks {
 			out = append(out, " "+layout.HunkHeader(&h))
 			for _, l := range h.Lines {
+				text := expand.Controls(l.Text)
 				switch l.Kind {
 				case patch.Context:
-					out = append(out, " "+l.Text)
+					out = append(out, " "+text)
 				case patch.Add:
-					out = append(out, "+"+l.Text)
+					out = append(out, "+"+text)
 				case patch.Del:
-					out = append(out, "-"+l.Text)
+					out = append(out, "-"+text)
 				}
 			}
 		}
@@ -38,7 +41,7 @@ func PlainLines(cs *patch.ChangeSet, prefix string) []string {
 func plainFile(f *patch.File, prefix string) string {
 	var b strings.Builder
 	b.WriteString(" ")
-	b.WriteString(strings.TrimPrefix(f.Path(), prefix))
+	b.WriteString(expand.Controls(strings.TrimPrefix(f.Path(), prefix)))
 	if f.Status != patch.Modified {
 		b.WriteString("  ")
 		b.WriteByte(f.Status.Letter())
@@ -64,7 +67,7 @@ func ListLines(cs *patch.ChangeSet, prefix string) []string {
 	for _, f := range cs.Files {
 		out = append(out, strings.Join([]string{
 			string(f.Status.Letter()),
-			strings.TrimPrefix(f.Path(), prefix),
+			expand.Controls(strings.TrimPrefix(f.Path(), prefix)),
 			"+" + itoa(f.Additions),
 			"-" + itoa(f.Deletions),
 		}, "\t"))
