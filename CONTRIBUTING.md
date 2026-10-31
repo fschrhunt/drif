@@ -39,6 +39,9 @@ project's MIT license.
 
 ## Releases
 
+See [docs/releasing.md](docs/releasing.md) for the one-time environment and
+token setup.
+
 `scripts/release.sh vX.Y.Z` is a two-step release: it first opens a PR naming
 the Unreleased changelog section, then, once merged, asks Actions to tag and
 publish. The release workflow builds the archives, attests them, writes the
