@@ -36,6 +36,20 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
+          # Describe the secret without printing it: a paste that picked up
+          # whitespace or the wrong value fails identically to an expired token.
+          token=${GH_TOKEN:-}
+          case $token in
+            '') kind='empty' ;;
+            github_pat_*) kind='fine-grained' ;;
+            ghp_*) kind='classic' ;;
+            gho_*) kind='oauth' ;;
+            *) kind='unrecognised' ;;
+          esac
+          echo "token: kind=$kind length=${#token}"
+          case $token in
+            *[[:space:]]*) echo "token: contains whitespace; paste the raw value" >&2 ;;
+          esac
           if ! push=$(gh api "repos/$GH_REPO" --jq '.permissions.push' 2>&1); then
             echo "RELEASE_TOKEN is not accepted for $GH_REPO:" >&2
             echo "  $push" >&2
