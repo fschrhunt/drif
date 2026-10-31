@@ -201,10 +201,8 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 		m.scroll(-body)
 	case keys.Top:
 		m.top = 0
-		m.skipHeader(1)
 	case keys.Bottom:
 		m.top = m.maxTop()
-		m.skipHeader(-1)
 	case keys.NextFile:
 		m.jumpRow(layout.FileRow, 1)
 	case keys.PrevFile:
@@ -413,7 +411,6 @@ func (m *Model) reloadTree() {
 	m.rebuild()
 	if idx < len(m.starts) {
 		m.top = m.starts[idx]
-		m.skipHeader(1)
 	}
 }
 
@@ -426,7 +423,6 @@ func (m *Model) setMode(mode layout.Mode) {
 			idx = len(m.starts) - 1
 		}
 		m.top = m.starts[idx]
-		m.skipHeader(1)
 	}
 }
 
@@ -447,11 +443,10 @@ func (m *Model) rebuild() {
 	m.total = n
 	m.wrapped = map[int][][]render.Seg{}
 	m.clampTop()
-	m.skipHeader(1)
 }
 
 func (m *Model) bodyHeight() int {
-	h := m.height - 1 // pinned file header
+	h := m.height - 2 // pinned file header and its rule
 	if m.chromeVisible() {
 		h--
 	}
@@ -463,43 +458,46 @@ func (m *Model) bodyHeight() int {
 
 func (m *Model) maxTop() int {
 	t := m.total - m.bodyHeight()
-	if t < 0 {
-		return 0
+	// The viewport may not start above the first content line, so a diff that
+	// fits on screen has minTop == maxTop rather than a negative range.
+	if lo := m.minTop(); t < lo {
+		t = lo
 	}
 	return t
 }
 
 func (m *Model) clampTop() {
-	if m.top > m.maxTop() {
-		m.top = m.maxTop()
+	lo, hi := m.minTop(), m.maxTop()
+	if m.top > hi {
+		m.top = hi
 	}
-	if m.top < 0 {
-		m.top = 0
+	if m.top < lo {
+		m.top = lo
 	}
+	// A header at the very top would be drawn twice: once pinned, once
+	// inline. Step off it, backwards when the bottom of the view is a header.
+	if len(m.rows) > 0 && m.rows[m.rowAt(m.top)].Kind == layout.FileRow {
+		if m.top+1 <= hi {
+			m.top++
+		} else if m.top-1 >= lo {
+			m.top--
+		}
+	}
+}
+
+// minTop is the first line of content: leading file headers belong to the
+// pinned header, not to the scrolling body.
+func (m *Model) minTop() int {
+	for i, row := range m.rows {
+		if row.Kind != layout.FileRow {
+			return m.starts[i]
+		}
+	}
+	return 0
 }
 
 func (m *Model) scroll(n int) {
 	m.top += n
-	m.clampTop()
-	m.skipHeader(n)
-}
-
-// skipHeader keeps the first visible line on content. A file header that
-// reaches the top becomes the pinned header; drawing it again underneath would
-// show the same band twice. Headers further down still scroll past, which is
-// how you see the next file arriving.
-func (m *Model) skipHeader(dir int) {
-	if len(m.rows) == 0 || m.rowAt(m.top) >= len(m.rows) {
-		return
-	}
-	if m.rows[m.rowAt(m.top)].Kind != layout.FileRow {
-		return
-	}
-	if dir < 0 {
-		m.top--
-	} else {
-		m.top++
-	}
 	m.clampTop()
 }
 
@@ -530,7 +528,6 @@ func (m *Model) jumpRow(kind layout.Kind, dir int) {
 		if m.rows[i].Kind == kind {
 			m.top = m.starts[i]
 			m.clampTop()
-			m.skipHeader(1)
 			return
 		}
 	}
@@ -569,7 +566,6 @@ func (m *Model) jumpMatch(dir int) {
 	}
 	m.top = m.starts[m.matches[m.matchAt]]
 	m.clampTop()
-	m.skipHeader(1)
 }
 
 // View implements tea.Model.
@@ -591,6 +587,8 @@ func (m *Model) View() string {
 	var b strings.Builder
 	b.WriteString(m.headerLine())
 	b.WriteByte('\n')
+	b.WriteString(m.headerRule())
+	b.WriteByte('\n')
 	for i := 0; i < body; i++ {
 		line := m.top + i
 		if line < m.total {
@@ -605,6 +603,16 @@ func (m *Model) View() string {
 		b.WriteString(m.chromeLine())
 	}
 	return b.String()
+}
+
+// headerRule is the single dim line that separates the pinned header from the
+// diff. Without it the header reads as just another line of content.
+func (m *Model) headerRule() string {
+	if m.r.Width <= 0 {
+		return ""
+	}
+	segs := []render.Seg{{Text: strings.Repeat("─", m.r.Width), Style: render.Style{Fg: m.r.Pal.Dim}}}
+	return render.ANSI(segs, m.r.Depth)
 }
 
 // headerLine renders the pinned header for the file under the viewport.
