@@ -70,8 +70,10 @@ type Model struct {
 	cmdInput string
 	message  string
 
-	help    bool
-	wrapped map[int][][]render.Seg
+	palette  bool
+	palQuery string
+	palIndex int
+	wrapped  map[int][][]render.Seg
 
 	auto     bool
 	userMode bool
@@ -153,6 +155,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch {
+		case m.palette:
+			return m, m.paletteKey(msg)
 		case m.typing:
 			return m, m.typingKey(msg)
 		case m.cmdMode:
@@ -175,7 +179,6 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 	m.message = ""
 	if msg.String() == "esc" {
 		m.clearSearch()
-		m.help = false
 		return nil
 	}
 
@@ -225,7 +228,7 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 	case keys.PrevMatch:
 		m.jumpMatch(-1)
 	case keys.Help:
-		m.help = !m.help
+		m.openPalette()
 	case keys.Command:
 		m.cmdMode = true
 		m.cmdInput = ""
@@ -313,7 +316,7 @@ func (m *Model) exec(line string) tea.Cmd {
 		return tea.Quit
 
 	case "help", "h":
-		m.help = true
+		m.openPalette()
 
 	case "theme":
 		if len(fields) != 2 {
@@ -484,13 +487,15 @@ func (m *Model) settle() {
 	if len(m.rows) == 0 || m.top >= m.total {
 		return
 	}
-	if m.rows[m.rowAt(m.top)].Kind != layout.FileRow {
-		return
-	}
-	if m.top+1 <= m.maxTop() {
-		m.top++
-	} else if m.top-1 >= m.minTop() {
-		m.top--
+	for m.rows[m.rowAt(m.top)].Kind == layout.FileRow {
+		switch {
+		case m.top+1 <= m.maxTop():
+			m.top++
+		case m.top-1 >= m.minTop():
+			m.top--
+		default:
+			return
+		}
 	}
 }
 
@@ -614,8 +619,8 @@ func (m *Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
 	}
-	if m.help {
-		return m.helpView()
+	if m.palette {
+		return m.paletteView()
 	}
 	body := m.bodyHeight()
 	chrome := m.chromeVisible()
@@ -666,6 +671,12 @@ func (m *Model) headerLine() string {
 func (m *Model) visualLine(n int) string {
 	idx := m.rowAt(n)
 	sub := n - m.starts[idx]
+	if m.rows[idx].Kind == layout.FileRow {
+		if sub == 1 {
+			return m.r.Rule()
+		}
+		return render.ANSI(m.r.Segments(m.rows[idx]), m.r.Depth)
+	}
 	wrapped, ok := m.wrapped[idx]
 	if !ok {
 		segs := m.r.Segments(m.rows[idx])
@@ -717,62 +728,4 @@ func (m *Model) chromeLine() string {
 		segs = append(segs, render.Seg{Text: m.message, Style: render.Style{Fg: pal.Accent}})
 	}
 	return render.ANSI(render.Fit(segs, m.r.Width, render.Style{}), m.r.Depth)
-}
-
-// helpRows pairs the actions shown in help with a description. The keys come
-// from the live keymap, so rebinding changes the help too.
-var helpRows = []struct {
-	actions []string
-	what    string
-}{
-	{[]string{keys.Down, keys.Up}, "line"},
-	{[]string{keys.HalfDown, keys.HalfUp}, "half page"},
-	{[]string{keys.PageDown, keys.PageUp}, "page"},
-	{[]string{keys.Top, keys.Bottom}, "top / bottom"},
-	{[]string{keys.NextFile, keys.PrevFile}, "next / previous file"},
-	{[]string{keys.NextHunk, keys.PrevHunk}, "next / previous hunk"},
-	{[]string{keys.Search}, "search"},
-	{[]string{keys.NextMatch, keys.PrevMatch}, "next / previous match"},
-	{[]string{keys.CycleLayout}, "split → unified → new"},
-	{[]string{keys.ToggleNumbers}, "line numbers"},
-	{[]string{keys.Command}, "command"},
-	{[]string{keys.Reload}, "reload config"},
-	{[]string{keys.Help}, "help"},
-	{[]string{keys.Quit}, "quit"},
-}
-
-func (m *Model) helpView() string {
-	pal := m.r.Pal
-	var b strings.Builder
-	b.WriteString("\n  ")
-	b.WriteString(render.ANSI([]render.Seg{{Text: "drif", Style: render.Style{Fg: pal.Accent, Bold: true}}}, m.r.Depth))
-	b.WriteString("\n\n")
-	for _, row := range helpRows {
-		label := m.bindings(row.actions...)
-		gap := 28 - len(label)
-		if gap < 1 {
-			gap = 1
-		}
-		b.WriteString("  ")
-		b.WriteString(render.ANSI([]render.Seg{{Text: label, Style: render.Style{Fg: pal.Text}}}, m.r.Depth))
-		b.WriteString(strings.Repeat(" ", gap))
-		b.WriteString(render.ANSI([]render.Seg{{Text: row.what, Style: render.Style{Fg: pal.Dim}}}, m.r.Depth))
-		b.WriteString("\n")
-	}
-	b.WriteString("\n  ")
-	b.WriteString(render.ANSI([]render.Seg{{Text: ":theme <name>  :layout split|unified|new  :numbers  :reload  :q", Style: render.Style{Fg: pal.Dim}}}, m.r.Depth))
-	b.WriteString("\n\n  press ? to close\n")
-	return b.String()
-}
-
-// bindings lists the keys currently bound to the given actions, in keymap
-// order, so help reflects a rebinding immediately.
-func (m *Model) bindings(actions ...string) string {
-	var out []string
-	for _, action := range actions {
-		for _, key := range m.bind.Action[action] {
-			out = append(out, keys.Display(key))
-		}
-	}
-	return strings.Join(out, " ")
 }

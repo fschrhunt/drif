@@ -109,7 +109,7 @@ func fileRows(f *patch.File, mode Mode) []Row {
 
 	for i := range f.Hunks {
 		h := &f.Hunks[i]
-		rows = append(rows, Row{Kind: HunkRow, File: f, Hunk: h, Text: HunkHeader(h), Gutter: gutter})
+		rows = append(rows, Row{Kind: HunkRow, File: f, Hunk: h, Text: HunkLabel(h), Gutter: gutter})
 
 		ops := walk(h)
 		if mode == Split {
@@ -249,6 +249,23 @@ func gutterWidth(f *patch.File) int {
 		}
 	}
 	return len(strconv.Itoa(max))
+}
+
+// HunkLabel is what a person sees at a hunk boundary. The line arithmetic is
+// machine syntax; the useful part is where the change sits, which git already
+// names with the enclosing function when it can.
+func HunkLabel(h *patch.Hunk) string {
+	if h.Section != "" {
+		return "⋯ " + h.Section
+	}
+	n := h.NewCount
+	if n == 0 {
+		n = h.OldCount
+	}
+	if n == 1 {
+		return "⋯ 1 line"
+	}
+	return fmt.Sprintf("⋯ %d lines", n)
 }
 
 // HunkHeader is the "@@ -a,b +c,d @@ section" line for a hunk.

@@ -133,10 +133,12 @@ plain", so the failure mode is dull, not broken.
   that are too large or too dissimilar are left undivided rather than speckled.
 - Split rows truncate; single-column rows wrap. Comparing two wrapped columns is worse than
   truncating them, and a diff is usually narrow code.
-- The file header is chrome, not content: it is pinned above the viewport, underlined by a single
-  dim rule, and changes with the file under it. Headers further down still scroll inline, so a
+- The file header is chrome, not content: it is pinned above the viewport, and changes with the
+  file under it. Each header is two rows — the name and a dim rule — both pinned and inline, so a
   second file arriving is visible before it takes the pinned line. The viewport may never start on
-  a header: `clampTop` steps off it, because the pinned copy already shows it.
+  a header.
+- A hunk boundary is shown as `⋯ 9 lines` or `⋯ func main()`, never as `@@ -1,8 +1,9 @@`. The
+  arithmetic is machine syntax; `--json` keeps it, a reader does not need it.
 - The bottom line is transient. It exists while there is a search, a command or a message, and
   otherwise the content owns the full height. There is no persistent mode or position readout.
 
@@ -147,11 +149,17 @@ Two palettes ship, one for dark backgrounds and one for light, and drif picks be
 (OSC 11), and otherwise by assuming dark. There is no theme option on purpose: the terminal is already themed, and a viewer that asks
 the user to describe their own screen has failed at the one thing it can see for free.
 
-The palette is monochrome apart from green and red. Everything structural — gutters, headers,
-hunk separators, metadata — is a shade of grey with no background of its own: a header is a
-label, not a surface, and a band there competes with the bands that mark changed lines. Only
-added and removed lines paint a background. Truecolor is used only when `COLORTERM` says so,
-with a 256-colour fallback. Never assume a background colour for text that is
+A terminal gives an interface three things: ink, background, and attributes. There are no
+surfaces, no borders thinner than a cell, and no opacity, so a painted background is a claim on a
+canvas that belongs to the user. drif therefore paints exactly one thing: lines that changed.
+Green and red, full width, because that is where a background carries meaning rather than
+decoration.
+
+Everything else is ink. Bold names the file; dim carries gutters, hunk separators and metadata;
+the terminal's own foreground carries the code; one dim rule ends a file header. Change bands are
+the page mixed 20% toward the accent (`#092f22` / `#3b1114` dark, `#e2f7ea` / `#ffe6e8` light),
+not a hand-picked tint, so a band belongs to the same colour family as everything else. Truecolor
+is used only when `COLORTERM` says so, with a 256-colour fallback. Never assume a background colour for text that is
 not part of a band — that is the terminal equivalent of adapting to the host theme, and it is why
 the output blends instead of fighting you.
 
@@ -195,6 +203,11 @@ that controls how it is reviewed. Precedence is defaults, repository, user, flag
 The command line exists so the loop is edit, look, edit. `R` re-reads the config file and rebuilds
 the view in place; `:theme` re-resolves one theme without touching the file. That is the whole
 reason configuration is worth having in an interactive tool: the feedback is immediate.
+
+Nothing is printed about keys anywhere on screen. `?` opens the command palette — a filtered list
+of everything drif can do, with the live binding beside each row — and that list is the only place
+the interface explains itself. `/` stays content search, because making people open a palette and
+pick "Search…" before typing is friction on the one action they repeat constantly.
 
 ## 11. Open questions
 

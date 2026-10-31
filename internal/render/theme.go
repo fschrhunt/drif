@@ -47,6 +47,8 @@ func Hex(s string) Color {
 // additions and deletions. Colour that does not mean "added" or "removed" is
 // noise while reading, so there is none.
 type Palette struct {
+	// Text and FileFg are usually unset, which leaves the terminal's own
+	// foreground in place: the code is the user's type, not ours to colour.
 	Text   Color
 	Dim    Color
 	Accent Color
@@ -62,37 +64,33 @@ type Palette struct {
 	FileFg Color
 }
 
-// Dark suits terminals with a dark background.
+// Dark suits terminals with a dark background. Dim is the same grey on both
+// backgrounds, so it can be a literal; the change colours are mixed from the
+// accent the way a diff band should be, not picked by eye.
 func Dark() *Palette {
 	return &Palette{
-		Text:      Hex("#d4d4d4"),
-		Dim:       Hex("#6b6b6b"),
-		Accent:    Hex("#e8e8e8"),
-		AddFg:     Hex("#4ec97a"),
-		AddBg:     Hex("#101a14"),
-		AddEmphBg: Hex("#1d3b2a"),
-		DelFg:     Hex("#e5534b"),
-		DelBg:     Hex("#1e1113"),
-		DelEmphBg: Hex("#4a1e22"),
-		HunkFg:    Hex("#8a8a8a"),
-		FileFg:    Hex("#e6e6e6"),
+		Dim:       Hex("#636363"),
+		AddFg:     Hex("#07c480"),
+		AddBg:     Hex("#092f22"),
+		AddEmphBg: Hex("#084d35"),
+		DelFg:     Hex("#ff2e3f"),
+		DelBg:     Hex("#3b1114"),
+		DelEmphBg: Hex("#62171d"),
+		HunkFg:    Hex("#636363"),
 	}
 }
 
 // Light suits terminals with a light background.
 func Light() *Palette {
 	return &Palette{
-		Text:      Hex("#1f1f1f"),
-		Dim:       Hex("#6e6e6e"),
-		Accent:    Hex("#111111"),
-		AddFg:     Hex("#1a7f37"),
-		AddBg:     Hex("#eefbf1"),
-		AddEmphBg: Hex("#c9f0d6"),
+		Dim:       Hex("#636363"),
+		AddFg:     Hex("#0b8a46"),
+		AddBg:     Hex("#e2f7ea"),
+		AddEmphBg: Hex("#a2e6bb"),
 		DelFg:     Hex("#cf222e"),
-		DelBg:     Hex("#fdeff0"),
-		DelEmphBg: Hex("#ffd5d8"),
-		HunkFg:    Hex("#6e6e6e"),
-		FileFg:    Hex("#111111"),
+		DelBg:     Hex("#ffe6e8"),
+		DelEmphBg: Hex("#f0abb0"),
+		HunkFg:    Hex("#636363"),
 	}
 }
 
