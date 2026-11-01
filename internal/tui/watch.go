@@ -57,10 +57,11 @@ func skipDir(name string) bool {
 	case ".git", "node_modules", "target", ".venv", "__pycache__", ".next", "dist", "build":
 		return true
 	}
-	return strings.HasPrefix(name, ".")
+	return false
 }
 
 func (w *watcher) loop() {
+	defer close(w.events)
 	for {
 		select {
 		case event, ok := <-w.fw.Events:
@@ -70,18 +71,18 @@ func (w *watcher) loop() {
 			if irrelevant(event.Name) {
 				continue
 			}
-			if event.Op&fsnotify.Create != 0 {
-				if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
-					w.addTree(event.Name)
-				}
-			}
+			w.addCreatedDir(event)
 			// Editors write in bursts; wait for the noise to settle, then
 			// collapse everything queued into one reload.
 			time.Sleep(120 * time.Millisecond)
 		drain:
 			for {
 				select {
-				case <-w.fw.Events:
+				case event, ok := <-w.fw.Events:
+					if !ok {
+						return
+					}
+					w.addCreatedDir(event)
 				default:
 					break drain
 				}
@@ -95,6 +96,16 @@ func (w *watcher) loop() {
 				return
 			}
 		}
+	}
+}
+
+// addCreatedDir starts watching newly created directory trees.
+func (w *watcher) addCreatedDir(event fsnotify.Event) {
+	if event.Op&fsnotify.Create == 0 || skipDir(filepath.Base(event.Name)) {
+		return
+	}
+	if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
+		w.addTree(event.Name)
 	}
 }
 

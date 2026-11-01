@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/BurntSushi/toml"
 	tea "github.com/charmbracelet/bubbletea"
@@ -58,7 +59,6 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 	colorMode := fs.String("color", "auto", "colour: auto, always or never")
 	noNumbers := fs.Bool("no-numbers", false, "hide line numbers")
 	exitCode := fs.Bool("exit-code", false, "exit 1 when there are changes")
-	watch := fs.Bool("watch", false, "reload when files change")
 	showVersion := fs.Bool("version", false, "print the version")
 	fs.Usage = func() { usage(stderr) }
 
@@ -113,9 +113,6 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 		if set["no-numbers"] {
 			c.Numbers = !*noNumbers
 		}
-		if set["watch"] {
-			c.Watch = *watch
-		}
 		return c, c.Validate()
 	}
 
@@ -158,7 +155,7 @@ func run(args []string, stdin *os.File, stdout, stderr io.Writer) int {
 		}
 		interactive := stdoutTTY && !*plain && (stdinTTY || *forceTUI)
 		if interactive {
-			if code := runTUI(cs, active, resolve, repo, stdinTTY, stderr); code != 0 {
+			if code := runTUI(cs, active, resolve, repo, stdinTTY, *file, stderr); code != 0 {
 				return code
 			}
 		} else {
@@ -207,8 +204,9 @@ func load(repo *git.Repo, base string, context int, untracked bool, stdin *os.Fi
 
 // runTUI starts the interactive view. The config is re-read on demand so a
 // theme can be edited in one window and seen in another.
-func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Config, error), repo *git.Repo, stdinTTY bool, stderr io.Writer) int {
+func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Config, error), repo *git.Repo, stdinTTY bool, file string, stderr io.Writer) int {
 	active := cfg
+	var activeMu sync.RWMutex
 
 	keymap, err := active.KeyMap()
 	if err != nil {
@@ -234,16 +232,24 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Con
 		if err != nil {
 			return nil, err
 		}
+		activeMu.Lock()
 		active = next
+		activeMu.Unlock()
 		mode, auto := layoutOf(next.Layout)
 		return &tui.Refresh{Palette: pal, Bind: km, Mode: mode, Auto: auto, Numbers: next.Numbers}, nil
 	}
 
 	themeFor := func(name string) (*render.Palette, error) {
-		return theme.Resolve(name, active.Colors)
+		activeMu.RLock()
+		colors := active.Colors
+		activeMu.RUnlock()
+		return theme.Resolve(name, colors)
 	}
 
 	mode, auto := layoutOf(active.Layout)
+	if cs.MergeBase == "" {
+		repo = nil // A piped patch is a snapshot, even inside a repository.
+	}
 
 	opts := tui.Options{
 		Mode:    mode,
@@ -252,11 +258,16 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Con
 		Palette: palette,
 		Bind:    keymap,
 		Repo:    repo,
-		Watch:   active.Watch,
 		Reload: func() (*patch.ChangeSet, error) {
-			next, err := repo.Load(git.Options{Base: active.Base, Context: active.Context, Untracked: active.Untracked})
+			activeMu.RLock()
+			options := git.Options{Base: active.Base, Context: active.Context, Untracked: active.Untracked}
+			activeMu.RUnlock()
+			next, err := repo.Load(options)
 			if err != nil {
 				return nil, err
+			}
+			if file != "" {
+				next.Files = pick(next.Files, file)
 			}
 			return next, nil
 		},
@@ -269,7 +280,9 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Con
 	fmt.Fprint(os.Stdout, "\x1b[?1007h")
 	defer fmt.Fprint(os.Stdout, "\x1b[?1007l")
 
-	if _, err := tea.NewProgram(tui.New(cs, opts), programOptions(stdinTTY)...).Run(); err != nil {
+	model := tui.New(cs, opts)
+	defer model.Close()
+	if _, err := tea.NewProgram(model, programOptions(stdinTTY)...).Run(); err != nil {
 		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2
 	}
@@ -462,7 +475,6 @@ func showConfig(configPath string, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "context %d\n", cfg.Context)
 	fmt.Fprintf(stdout, "numbers %v\n", cfg.Numbers)
 	fmt.Fprintf(stdout, "untracked %v\n", cfg.Untracked)
-	fmt.Fprintf(stdout, "watch   %v\n", cfg.Watch)
 	if cfg.Base != "" {
 		fmt.Fprintf(stdout, "base    %s\n", cfg.Base)
 	}
@@ -612,7 +624,6 @@ flags:
   --color WHEN        auto, always or never
   --no-numbers        hide line numbers
   --no-untracked      ignore files git does not track
-  --watch             reload when files change
   --exit-code         exit 1 when there are changes
   --version           print the version
 

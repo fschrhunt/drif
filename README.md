@@ -18,12 +18,19 @@
 # installer: checksum-verified release into ~/.local/bin
 curl -fsSL https://raw.githubusercontent.com/fschrhunt/drif/main/install.sh | sh
 
-# Homebrew
-brew install fschrhunt/drif/drif
+# Homebrew: the repository is its own tap, so the URL is explicit
+brew tap fschrhunt/drif https://github.com/fschrhunt/drif
+brew install drif
 
 # from a checkout
 go install ./cmd/drif && ln -sf drif "$(go env GOPATH)/bin/git-drif"
 ```
+
+Homebrew only infers a tap URL for a repository named `homebrew-<name>`, so
+`brew install fschrhunt/drif/drif` alone cannot work: it would look for
+`fschrhunt/homebrew-drif`. drif keeps its formula in the main repository (`drif.rb`), which is why
+the tap is added by URL. Because that tap is not official, current Homebrew will not load it until
+you trust it; it prints the exact `brew trust` command to run.
 
 The `git-drif` link makes `git drif` work; git looks up `git-<name>` on `PATH`. Releases carry a build
 provenance attestation:
@@ -48,7 +55,7 @@ and untracked — as one surface.
 - **Word-level emphasis** inside changed pairs, so a one-character edit reads as a one-character
   edit.
 - **Hunk boundaries read like prose** — `⋯ func main()` instead of `@@ -1,8 +1,9 @@`.
-- **`--watch`** reloads the surface as you edit.
+- **Live updates** reload the interactive worktree view as you edit.
 
 ### Command palette
 
