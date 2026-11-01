@@ -1,71 +1,65 @@
-# drif
+<p align="center">A terminal diff viewer for a worktree.</p>
 
-A terminal diff viewer. Run it inside a worktree and see everything that changed from the base
-branch, as one continuous review surface.
+<p align="center">
+  <a href="https://github.com/fschrhunt/drif/releases"><img alt="Release" src="https://img.shields.io/github/v/release/fschrhunt/drif?style=flat-square"></a>
+  <a href="https://github.com/fschrhunt/drif/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/fschrhunt/drif/ci.yml?style=flat-square&branch=main"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/github/license/fschrhunt/drif?style=flat-square"></a>
+</p>
 
-```
-$ cd ~/room/code/worktrees/opencode-site
-$ drif
-```
+<p align="center">
+  <img src="assets/header.png" alt="drif showing a side-by-side diff of a small Go project" width="100%">
+</p>
 
-Split view compares old and new side by side. Press `s` to fold it into one column, `s` again to
-hide the deletions and read only the result.
+---
 
-```
- internal/render/render.go                                                          +7 -7
- @@ -14,16 +14,16 @@ type Renderer struct {
-14   // Draw writes every row to the buffer.       │ 14   // Draw writes every row to the buffer.
-15   func (r *Renderer) Draw(rows []string) string │ 15   func (r *Renderer) Draw(rows []string) string
-17 -     for _, row := range rows {                │ 17 +     for i, row := range rows {
-                                                   │ 18 +         if i > 0 {
-18           b.WriteString(row)                    │ 21           b.WriteString(row)
- internal/render/render.go +7 -7                                   split · 42% · ? help
-```
+### Installation
 
-## Install
+```bash
+# installer: checksum-verified release into ~/.local/bin
+curl -fsSL https://raw.githubusercontent.com/fschrhunt/drif/main/install.sh | sh
 
-```sh
 # Homebrew
 brew install fschrhunt/drif/drif
 
-# or the installer: checksum-verified release, into ~/.local/bin
-curl -fsSL https://raw.githubusercontent.com/fschrhunt/drif/main/install.sh | sh
+# from a checkout
+go install ./cmd/drif && ln -sf drif "$(go env GOPATH)/bin/git-drif"
 ```
 
-From a checkout:
+The `git-drif` link makes `git drif` work; git looks up `git-<name>` on `PATH`. Releases carry a build
+provenance attestation:
 
-```sh
-go install ./cmd/drif
-ln -sf drif "$(go env GOPATH)/bin/git-drif"
+```bash
+gh attestation verify <archive> -R fschrhunt/drif
 ```
 
-The `git-drif` link is what makes `git drif` work; git looks up `git-<name>` on `PATH`.
-Releases are attested: `gh attestation verify <archive> -R fschrhunt/drif`.
+### What it does
 
-## Try it
+Run it inside a worktree and it reviews everything changed since the base branch — staged, unstaged
+and untracked — as one surface.
 
-`scripts/demo.sh` builds a throwaway repository that reads like one branch of real work: a feature,
-its tests, a rename, a deleted file, a doc update and a one-line fix.
+- **One surface, not a file viewer.** The whole change set scrolls as a document. The file header is
+  pinned to the top and follows the file you are reading.
+- **Colour means exactly two things.** Added is green, removed is red, and only changed lines paint
+  a background. Everything structural is ink, so drif adapts to your terminal instead of covering
+  it.
+- **Split, unified, or result only.** `s` cycles: compare both sides, fold into one column, or hide
+  the deletions and read what the file became.
+- **Long lines wrap**, in one column and in both halves of the split. No horizontal scrolling.
+- **Word-level emphasis** inside changed pairs, so a one-character edit reads as a one-character
+  edit.
+- **Hunk boundaries read like prose** — `⋯ func main()` instead of `@@ -1,8 +1,9 @@`.
+- **`--watch`** reloads the surface as you edit.
 
-```sh
-scripts/demo.sh
-cd /tmp/drif-demo && drif
-```
+### Command palette
 
-`scripts/demo.sh --edges` builds the other repository — the shapes that break diff viewers: a
-binary, a symlink, CRLF, non-ASCII and space-containing paths, a mode-only change, a 4000-line file
-and an untracked binary. Reach for it when you change the renderer, not when you want to judge how
-reviewing feels.
+`?` opens the palette, `/` opens it in search mode. Nothing on screen tells you which key does
+what; the palette is the only place the interface explains itself.
 
-`drif config` in any repository prints the revision being compared, which is the quickest way to
-check you are looking at what you think you are:
+Search lists matching lines with `file:line` and jumps on Enter, leaving the matches available to
+`n` and `N`. The input has a real caret: arrows move it, Home/End jump, Backspace and Delete edit in
+place. The panel floats over the diff rather than replacing it.
 
-```
-config  ~/.config/drif/config.toml
-base    origin/main → 061321a
-```
-
-## Usage
+### Usage
 
 ```
 drif                      review the working tree
@@ -77,145 +71,48 @@ drif --json               the change set as JSON
 git diff | drif           render a patch
 ```
 
-Bare `drif` compares the merge base of the base branch and `HEAD` against the working tree,
-so it includes staged, unstaged and untracked files, and leaves out commits that landed on the
-base branch after you branched. Everything under the current directory is in scope; run it from
+Bare `drif` includes staged, unstaged and untracked files, and leaves out commits that landed on
+the base branch after you branched. Everything under the current directory is in scope; run it from
 `src/` and you only see `src/`.
 
 The base is found from `--base`, `$DRIF_BASE`, `git config drif.base`, `origin/HEAD`,
-`origin/main`, `origin/master`, `main`, then `master`.
+`origin/main`, `origin/master`, `main`, then `master`. `drif config` shows the revision actually
+being compared.
 
-## Configuration
+### Configuration
 
 Nothing has to be configured. The file exists for the handful of things worth remembering.
 
-```sh
+```bash
 drif init     # write a commented config
 drif config   # show what is actually in effect
 ```
 
-The file lives at `~/.config/drif/config.toml` (`$XDG_CONFIG_HOME/drif/config.toml`, or
-`$DRIF_CONFIG_DIR`; override the file itself with `--config`). Every key is optional — delete a
-line and you get the built-in behaviour back.
-
 ```toml
-theme = "auto"        # auto follows the terminal; or a theme name
-layout = "auto"       # auto, split, unified, new
+theme = "auto"      # auto follows the terminal
+layout = "auto"     # auto, split, unified, new
 context = 3
 numbers = true
-untracked = true
-watch = false
-# base = "origin/main"
 
-[keys]
-quit = ["q", "ctrl+c"]
-next_file = ["tab", "]"]
-
-[colors]
-add_bg = "#10241a"
-```
-
-Flags override the file, and only when you actually pass them.
-
-### Per repository
-
-One setting genuinely belongs to the project rather than to you: which branch it
-branches from. Put a `.drif.toml` at the repository root and everyone who
-clones it compares against the right place.
-
-```toml
-base = "develop"
-```
-
-`drif init --repo` writes one. That is the entire schema, on purpose: a
-repository may say **what** to compare against, never **how** the diff is
-painted. Themes, colours, keys, layout and context are rejected there with an
-error, because a review tool whose presenter can be set by the thing being
-reviewed is a review tool that can be made to lie.
-
-Your own `base` still wins over the repository's, and `--base` wins over both.
-
-## Themes
-
-Two palettes ship and drif picks between them by asking your terminal for its background — there
-is nothing to choose. When you want a different look, you layer on top of that.
-
-Adjust a few colours in your config:
-
-```toml
-[colors]
-add_bg = "#10241a"
-del_bg = "#2a1417"
-
-```
-The palette is monochrome by design: only additions and deletions carry colour, and only changed
-lines paint a background.
-
-Or write a theme file at `~/.config/drif/themes/<name>.toml` and set `theme = "<name>"`:
-
-```toml
-extends = "dark"       # dark, light, auto, or another theme
-
-[colors]
-add_fg = "#b8f397"
-
-```
-Everything except additions and deletions is greyscale, which is the point: colour means
-"added" or "removed" and nothing else.
-
-`extends` inherits everything and overrides the rest, so a theme can be one line. `extends = "auto"`
-follows the terminal, which is the default when you leave it out.
-
-```sh
-drif theme              # list installed themes
-drif theme dark         # print the resolved colours as a theme file to copy
-```
-
-Inside the viewer, `?` opens the command palette — search, jump, layout, theme, line numbers,
-reload, quit — and `/` stays content search. There are no hints printed on screen: the palette is
-the only place drif explains itself. `:theme <name>` still works if you want a theme the palette
-does not list. `R` re-reads the config from disk, so you can keep the theme file open in another
-window while you tune it.
-
-## Keys
-
-Every action is rebindable. These are the defaults:
-
-```
-j k ↓ ↑         line                space b          page
-g G             top / bottom        tab shift+tab    next / prev file
-} {             next / prev hunk    s                split → unified → new
-/               search              n N              next / prev match
-t               line numbers        :                command
-R               reload config       ?                help
-q               quit
-```
-
-Rebind them in `[keys]`. Replacing an action's list replaces all of that action's keys, and a key
-can only do one thing — a conflict is an error rather than a surprise.
-
-```toml
 [keys]
 quit = ["x"]
-next_file = ["J"]
-down = ["e", "down"]
+
+[colors]
+add_bg = "#10241a"
 ```
 
-Keys are written the way your terminal reports them: `j`, `G`, `ctrl+d`, `tab`, `shift+tab`,
-`pgdown`, `space`, `enter`, `esc`. Multi-key sequences like `gg` are not supported.
+A repository can also carry `.drif.toml` at its root, declaring only `base` — what to compare
+against, never how the diff is painted.
 
-The command line takes a small set of verbs:
+Full reference: **[docs/configuration.md](docs/configuration.md)** — options, per-repository
+settings, themes, key bindings and the in-viewer command line.
 
-```
-:theme <name>    :layout split|unified|new    :numbers    :reload    :q
-```
-
-## For agents
+### For agents
 
 `drif --list` then `drif --file PATH` is the same shape as `git diff --stat` then
 `git diff -- PATH`, so there is nothing new to learn:
 
-```sh
+```bash
 $ drif --list
 M	internal/render/render.go	+7	-7
 A	notes.txt	+1	-0
@@ -223,33 +120,33 @@ A	notes.txt	+1	-0
 $ drif --file notes.txt
 ```
 
-`--json` emits the full structure with a versioned schema. When output is not a terminal nothing
-is coloured, nothing paginates and nothing waits for input, so piping is always safe. `--context 0`
-gives the most token-frugal patch, and `--exit-code` returns 1 when anything changed.
+`--json` emits the full structure with a versioned schema. When output is not a terminal nothing is
+coloured, nothing paginates and nothing waits for input. `--context 0` gives the most token-frugal
+patch and `--exit-code` returns 1 when anything changed. Config and themes never change the
+machine-readable output.
 
-Config and themes never change the machine-readable output: `--json` returns the patch as git
-produced it.
+### How it works
 
-## How it works
+drif renders patches; it does not implement git. It asks git for the diff, parses the unified patch
+and lays the hunks out as rows. Every surface — split, unified, pager, plain text, JSON — reads
+those same rows, so what you see interactively is what an agent gets. The design decisions are in
+[docs/plan.md](docs/plan.md).
 
-drif renders patches; it does not implement git. It asks git for the diff, parses the unified
-patch, and lays the hunks out as rows. Every surface — split view, pager, plain text, JSON — reads
-those same rows, so what you see interactively is what an agent gets.
+### Contributing
 
-Long lines wrap — in one column and in both halves of the split — so there is never a horizontal
-scroll to chase. The palette is monochrome apart from green and red: a diff has exactly two things
-worth signalling, and a third colour only competes with them. The file header is pinned to the top and
-changes as you move between files; the bottom line appears only while you are searching, typing a
-command, or reading an error.
-
-## Development
-
-```sh
+```bash
 ./x            # format check, vet, build, race tests
 ./x review     # build this checkout and review its own changes with it
 ./x demo       # build the demo repository and review it
-./x test -run Parser ./internal/patch
 ```
 
-`./x review` is the loop this tool is for: the binary that renders the diff is the one built from
-the diff you are reading.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Security reports go through
+[private vulnerability reporting](SECURITY.md).
+
+---
+
+<p align="center">
+  <a href="https://github.com/fschrhunt/drif">GitHub</a> ·
+  <a href="https://github.com/fschrhunt/drif/releases">Releases</a> ·
+  <a href="LICENSE">MIT</a>
+</p>
