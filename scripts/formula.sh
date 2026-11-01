@@ -4,7 +4,7 @@
 # emitting Ruby literals. The release workflow runs it after publishing; drif's
 # repository is its own tap:
 #
-#   brew tap fschrhunt/drif https://github.com/fschrhunt/drif && brew install fschrhunt/drif/drif
+#   brew tap fschrhunt/drif https://github.com/fschrhunt/drif && brew install drif
 #
 # usage: scripts/formula.sh vX.Y.Z CHECKSUMS > drif.rb
 set -eu
