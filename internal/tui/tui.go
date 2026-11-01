@@ -61,8 +61,6 @@ type Model struct {
 	top    int
 
 	query   string
-	typing  bool
-	input   string
 	matches []int
 	matchAt int
 
@@ -70,10 +68,12 @@ type Model struct {
 	cmdInput string
 	message  string
 
-	palette  bool
-	palQuery string
-	palIndex int
-	wrapped  map[int][][]render.Seg
+	palette   bool
+	palMode   paletteMode
+	palQuery  string
+	palCursor int
+	palIndex  int
+	wrapped   map[int][][]render.Seg
 
 	auto     bool
 	userMode bool
@@ -157,8 +157,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case m.palette:
 			return m, m.paletteKey(msg)
-		case m.typing:
-			return m, m.typingKey(msg)
 		case m.cmdMode:
 			return m, m.commandKey(msg)
 		}
@@ -221,14 +219,13 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 		m.numbers = !m.numbers
 		m.rebuild()
 	case keys.Search:
-		m.typing = true
-		m.input = ""
+		m.openPalette(paletteSearch)
 	case keys.NextMatch:
 		m.jumpMatch(1)
 	case keys.PrevMatch:
 		m.jumpMatch(-1)
 	case keys.Help:
-		m.openPalette()
+		m.openPalette(paletteCommands)
 	case keys.Command:
 		m.cmdMode = true
 		m.cmdInput = ""
@@ -247,36 +244,6 @@ func (m *Model) clearSearch() {
 	m.r.Query = ""
 	m.matches = nil
 	m.wrapped = map[int][][]render.Seg{}
-}
-
-func (m *Model) typingKey(msg tea.KeyMsg) tea.Cmd {
-	switch msg.String() {
-	case "esc":
-		m.typing = false
-		m.input = ""
-	case "enter":
-		m.typing = false
-		m.query = m.input
-		m.r.Query = m.query
-		m.matches = m.findMatches()
-		m.matchAt = 0
-		m.wrapped = map[int][][]render.Seg{}
-		if len(m.matches) > 0 {
-			m.jumpMatch(0)
-		}
-	case "backspace":
-		if m.input != "" {
-			r := []rune(m.input)
-			m.input = string(r[:len(r)-1])
-		}
-	case "ctrl+c":
-		return tea.Quit
-	default:
-		if msg.Type == tea.KeyRunes || msg.Type == tea.KeySpace {
-			m.input += string(msg.Runes)
-		}
-	}
-	return nil
 }
 
 func (m *Model) commandKey(msg tea.KeyMsg) tea.Cmd {
@@ -316,7 +283,7 @@ func (m *Model) exec(line string) tea.Cmd {
 		return tea.Quit
 
 	case "help", "h":
-		m.openPalette()
+		m.openPalette(paletteCommands)
 
 	case "theme":
 		if len(fields) != 2 {
@@ -628,9 +595,15 @@ func (m *Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
 	}
+	base := m.diffView()
 	if m.palette {
-		return m.paletteView()
+		return m.paletteOverlay(base)
 	}
+	return base
+}
+
+// diffView is the review surface itself, without the palette.
+func (m *Model) diffView() string {
 	body := m.bodyHeight()
 	chrome := m.chromeVisible()
 	visible := body
@@ -689,7 +662,7 @@ func (m *Model) visualLine(n int) string {
 
 // chromeVisible is true only while there is something transient to show.
 func (m *Model) chromeVisible() bool {
-	return m.typing || m.cmdMode || m.query != "" || m.message != ""
+	return m.cmdMode || m.query != "" || m.message != ""
 }
 
 // chromeLine is the transient bottom line: a prompt, a search, or a message.
@@ -702,12 +675,6 @@ func (m *Model) chromeLine() string {
 		segs = append(segs,
 			render.Seg{Text: ":", Style: render.Style{Fg: pal.Accent, Bold: true}},
 			render.Seg{Text: m.cmdInput, Style: render.Style{Fg: pal.Text}},
-			render.Seg{Text: "▏", Style: render.Style{Fg: pal.Accent}},
-		)
-	case m.typing:
-		segs = append(segs,
-			render.Seg{Text: "/", Style: render.Style{Fg: pal.Text}},
-			render.Seg{Text: m.input, Style: render.Style{Fg: pal.Text}},
 			render.Seg{Text: "▏", Style: render.Style{Fg: pal.Accent}},
 		)
 	case m.query != "":
