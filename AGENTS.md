@@ -32,6 +32,8 @@
 - `.github/workflows/`: CI (Linux, macOS, and a `Required` aggregate the ruleset names), release,
   and weekly dependency updates. `.github/rulesets/main.json` is the branch protection source of
   truth; if you rename the `Required` job, change both.
+- `assets/`: the README screenshots. They are captures of the real interface in both palettes,
+  rendered with DejaVu Sans Mono; re-shoot both when the visual design changes.
 - `scripts/demo.sh`: builds a demo repository. The default is a realistic branch (a feature, tests,
   a rename, a deletion, a doc update) for judging the experience; `--edges` builds the awkward
   shapes (binary, symlink, CRLF, non-ASCII paths, mode-only) for changing the renderer. The edge
