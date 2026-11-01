@@ -191,22 +191,12 @@ func (r *Renderer) splitSegs(row layout.Row) []Seg {
 	lw := avail / 2
 	rw := avail - lw
 
-	// When an addition has no deletion to compare with, the empty half keeps
-	// the band so the change still reads as one block across both columns. The
-	// same goes for a deletion with nothing added.
-	leftFill, rightFill := Style{}, Style{}
-	if row.Right != nil && row.Right.Kind == patch.Add {
-		leftFill = Style{Bg: r.Pal.AddBg}
-	}
-	if row.Left != nil && row.Left.Kind == patch.Del {
-		rightFill = Style{Bg: r.Pal.DelBg}
-	}
-	segs := r.cellSegs(row.File, row.Left, true, lw, row.Gutter, leftFill)
+	segs := r.cellSegs(row.File, row.Left, true, lw, row.Gutter)
 	// A drawn divider competes with the gutter for a job the gutter already
 	// does. Two blank columns of the terminal's own background separate the
 	// halves and nothing else.
 	segs = append(segs, Seg{Text: "  ", Style: Style{}})
-	segs = append(segs, r.cellSegs(row.File, row.Right, false, rw, row.Gutter, rightFill)...)
+	segs = append(segs, r.cellSegs(row.File, row.Right, false, rw, row.Gutter)...)
 	return segs
 }
 
@@ -223,9 +213,11 @@ func (r *Renderer) unifiedFromSplit(row layout.Row) []Seg {
 	})
 }
 
-func (r *Renderer) cellSegs(f *patch.File, c *layout.Cell, old bool, w, gutter int, fill Style) []Seg {
+func (r *Renderer) cellSegs(f *patch.File, c *layout.Cell, old bool, w, gutter int) []Seg {
 	if c == nil {
-		return []Seg{{Text: strings.Repeat(" ", w), Style: fill}}
+		// The empty half of an unpaired change is a dim block, the same surface
+		// as a file header: it is a gap in one side, not a change of its own.
+		return []Seg{{Text: strings.Repeat(" ", w), Style: Style{Bg: r.Pal.FileBg}}}
 	}
 	base := r.baseStyle(signOf(c.Kind))
 	segs := make([]Seg, 0, 8)
