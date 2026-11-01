@@ -29,6 +29,7 @@ type ColorSet struct {
 	Accent string `toml:"accent"`
 
 	FileFG string `toml:"file_fg"`
+	FileBG string `toml:"file_bg"`
 	HunkFG string `toml:"hunk_fg"`
 
 	AddFG       string `toml:"add_fg"`
@@ -112,6 +113,7 @@ func Apply(p *render.Palette, cs ColorSet) error {
 		{"accent", cs.Accent, func(c render.Color) { p.Accent = c }},
 
 		{"file_fg", cs.FileFG, func(c render.Color) { p.FileFg = c }},
+		{"file_bg", cs.FileBG, func(c render.Color) { p.FileBg = c }},
 		{"hunk_fg", cs.HunkFG, func(c render.Color) { p.HunkFg = c }},
 
 		{"add_fg", cs.AddFG, func(c render.Color) { p.AddFg = c }},
@@ -145,7 +147,7 @@ func ToColorSet(p *render.Palette) ColorSet {
 	}
 	return ColorSet{
 		Text: h(p.Text), Dim: h(p.Dim), Accent: h(p.Accent),
-		FileFG: h(p.FileFg), HunkFG: h(p.HunkFg),
+		FileFG: h(p.FileFg), FileBG: h(p.FileBg), HunkFG: h(p.HunkFg),
 		AddFG: h(p.AddFg), AddBG: h(p.AddBg), AddEmphasis: h(p.AddEmphBg),
 		DelFG: h(p.DelFg), DelBG: h(p.DelBg), DelEmphasis: h(p.DelEmphBg),
 	}

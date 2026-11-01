@@ -62,6 +62,9 @@ type Palette struct {
 
 	HunkFg Color
 	FileFg Color
+	// FileBg is the dim surface behind a file header. It exists so a header
+	// reads as a strip of chrome rather than a line of content.
+	FileBg Color
 }
 
 // Dark suits terminals with a dark background. Dim is the same grey on both
@@ -77,6 +80,7 @@ func Dark() *Palette {
 		DelBg:     Hex("#3b1114"),
 		DelEmphBg: Hex("#62171d"),
 		HunkFg:    Hex("#636363"),
+		FileBg:    Hex("#0f0f0f"),
 	}
 }
 
@@ -91,6 +95,7 @@ func Light() *Palette {
 		DelBg:     Hex("#ffe6e8"),
 		DelEmphBg: Hex("#f0abb0"),
 		HunkFg:    Hex("#636363"),
+		FileBg:    Hex("#f0f0f0"),
 	}
 }
 

@@ -92,7 +92,8 @@ func (r *Renderer) Height(row layout.Row) int {
 // a header is a label, not a surface, and a band here would compete with the
 // bands that mark changed lines.
 func (r *Renderer) fileSegs(f *patch.File) []Seg {
-	left := []Seg{{Text: " ", Style: Style{}}}
+	bg := Style{Bg: r.Pal.FileBg}
+	left := []Seg{{Text: " ", Style: bg}}
 
 	path := expand.Expand(strings.TrimPrefix(f.Path(), r.Prefix))
 	dir, base := path, ""
@@ -100,26 +101,26 @@ func (r *Renderer) fileSegs(f *patch.File) []Seg {
 		dir, base = path[:i+1], path[i+1:]
 	}
 	if dir != "" {
-		left = append(left, Seg{Text: dir, Style: Style{Fg: r.Pal.Dim}})
+		left = append(left, Seg{Text: dir, Style: Style{Fg: r.Pal.Dim, Bg: r.Pal.FileBg}})
 	}
-	left = append(left, Seg{Text: base, Style: Style{Fg: r.Pal.FileFg, Bold: true}})
+	left = append(left, Seg{Text: base, Style: Style{Fg: r.Pal.FileFg, Bg: r.Pal.FileBg, Bold: true}})
 	if f.Status != patch.Modified {
-		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.Dim}})
+		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.Dim, Bg: r.Pal.FileBg}})
 	}
 
 	right := make([]Seg, 0, 4)
 	if f.Additions > 0 {
-		right = append(right, Seg{Text: "+" + strconv.Itoa(f.Additions), Style: Style{Fg: r.Pal.AddFg}})
+		right = append(right, Seg{Text: "+" + strconv.Itoa(f.Additions), Style: Style{Fg: r.Pal.AddFg, Bg: r.Pal.FileBg}})
 	}
 	if f.Deletions > 0 {
 		if len(right) > 0 {
-			right = append(right, Seg{Text: " ", Style: Style{}})
+			right = append(right, Seg{Text: " ", Style: bg})
 		}
-		right = append(right, Seg{Text: "-" + strconv.Itoa(f.Deletions), Style: Style{Fg: r.Pal.DelFg}})
+		right = append(right, Seg{Text: "-" + strconv.Itoa(f.Deletions), Style: Style{Fg: r.Pal.DelFg, Bg: r.Pal.FileBg}})
 	}
-	right = append(right, Seg{Text: " ", Style: Style{}})
+	right = append(right, Seg{Text: " ", Style: bg})
 
-	return r.joinBand(left, right, Style{})
+	return r.joinBand(left, right, bg)
 }
 
 // Rule is the single dim line that ends a file header.
@@ -127,7 +128,7 @@ func (r *Renderer) Rule() string {
 	if r.Width <= 0 {
 		return ""
 	}
-	segs := []Seg{{Text: strings.Repeat("─", r.Width), Style: Style{Fg: r.Pal.Dim}}}
+	segs := []Seg{{Text: strings.Repeat("─", r.Width), Style: Style{Fg: r.Pal.Dim, Bg: r.Pal.FileBg}}}
 	return ANSI(segs, r.Depth)
 }
 
