@@ -67,6 +67,8 @@ run the command again. Nothing is rewritten in place.
 ```sh
 gh api --method POST repos/fschrhunt/drif/rulesets \
   --input .github/rulesets/main.json
+gh api --method POST repos/fschrhunt/drif/rulesets \
+  --input .github/rulesets/tags.json
 ```
 
 It requires a status check named `Required`, which `.github/workflows/ci.yml`
