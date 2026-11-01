@@ -1,11 +1,3 @@
-<p align="center">
-  <picture>
-    <source srcset="assets/wordmark-dark.png" media="(prefers-color-scheme: dark)">
-    <source srcset="assets/wordmark-light.png" media="(prefers-color-scheme: light)">
-    <img src="assets/wordmark-light.png" alt="drif" width="252">
-  </picture>
-</p>
-
 <p align="center">A terminal diff viewer for a worktree.</p>
 
 <p align="center">
@@ -15,11 +7,7 @@
 </p>
 
 <p align="center">
-  <picture>
-    <source srcset="assets/header-dark.png" media="(prefers-color-scheme: dark)">
-    <source srcset="assets/header-light.png" media="(prefers-color-scheme: light)">
-    <img src="assets/header-light.png" alt="drif showing a side-by-side diff of a small Go project" width="100%">
-  </picture>
+  <img src="assets/header.png" alt="drif showing a side-by-side diff of a small Go project" width="100%">
 </p>
 
 ---
@@ -66,14 +54,6 @@ and untracked — as one surface.
 
 `?` opens the palette, `/` opens it in search mode. Nothing on screen tells you which key does
 what; the palette is the only place the interface explains itself.
-
-<p align="center">
-  <picture>
-    <source srcset="assets/palette-dark.png" media="(prefers-color-scheme: dark)">
-    <source srcset="assets/palette-light.png" media="(prefers-color-scheme: light)">
-    <img src="assets/palette-light.png" alt="The drif command palette over a diff" width="100%">
-  </picture>
-</p>
 
 Search lists matching lines with `file:line` and jumps on Enter, leaving the matches available to
 `n` and `N`. The input has a real caret: arrows move it, Home/End jump, Backspace and Delete edit in
