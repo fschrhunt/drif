@@ -134,9 +134,8 @@ plain", so the failure mode is dull, not broken.
 - Split rows truncate; single-column rows wrap. Comparing two wrapped columns is worse than
   truncating them, and a diff is usually narrow code.
 - The file header is chrome, not content: it is pinned above the viewport, and changes with the
-  file under it. Each header is two rows — the name and a dim rule — both pinned and inline, so a
-  second file arriving is visible before it takes the pinned line. The viewport may never start on
-  a header.
+  file under it. It is a single row on a dim surface, pinned and inline, so a second file arriving
+  is visible before it takes the pinned line. The viewport may never start on a header.
 - A hunk boundary is shown as `⋯ 9 lines` or `⋯ func main()`, never as `@@ -1,8 +1,9 @@`. The
   arithmetic is machine syntax; `--json` keeps it, a reader does not need it.
 - The bottom line is transient. It exists while there is a search, a command or a message, and
@@ -156,7 +155,8 @@ Green and red, full width, because that is where a background carries meaning ra
 decoration.
 
 Everything else is ink. Bold names the file; dim carries gutters, hunk separators and metadata;
-the terminal's own foreground carries the code; one dim rule ends a file header. Change bands are
+the terminal's own foreground carries the code. The header sits on a surface blended 12% from
+the page, which is the nearest a terminal gets to a translucent layer. Change bands are
 the page mixed 20% toward the accent (`#092f22` / `#3b1114` dark, `#e2f7ea` / `#ffe6e8` light),
 not a hand-picked tint, so a band belongs to the same colour family as everything else. Truecolor
 is used only when `COLORTERM` says so, with a 256-colour fallback. Never assume a background colour for text that is

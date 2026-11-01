@@ -449,7 +449,7 @@ func (m *Model) rebuild() {
 }
 
 func (m *Model) bodyHeight() int {
-	h := m.height - 2 // pinned file header and its rule
+	h := m.height - 1 // pinned file header
 	if m.chromeVisible() {
 		h--
 	}
@@ -628,8 +628,6 @@ func (m *Model) View() string {
 	var b strings.Builder
 	b.WriteString(m.headerLine())
 	b.WriteByte('\n')
-	b.WriteString(m.headerRule())
-	b.WriteByte('\n')
 	for i := 0; i < body; i++ {
 		line := m.top + i
 		if line < m.total {
@@ -644,16 +642,6 @@ func (m *Model) View() string {
 		b.WriteString(m.chromeLine())
 	}
 	return b.String()
-}
-
-// headerRule is the single dim line that separates the pinned header from the
-// diff. Without it the header reads as just another line of content.
-func (m *Model) headerRule() string {
-	if m.r.Width <= 0 {
-		return ""
-	}
-	segs := []render.Seg{{Text: strings.Repeat("─", m.r.Width), Style: render.Style{Fg: m.r.Pal.Dim}}}
-	return render.ANSI(segs, m.r.Depth)
 }
 
 // headerLine renders the pinned header for the file under the viewport.
@@ -671,12 +659,6 @@ func (m *Model) headerLine() string {
 func (m *Model) visualLine(n int) string {
 	idx := m.rowAt(n)
 	sub := n - m.starts[idx]
-	if m.rows[idx].Kind == layout.FileRow {
-		if sub == 1 {
-			return m.r.Rule()
-		}
-		return render.ANSI(m.r.Segments(m.rows[idx]), m.r.Depth)
-	}
 	wrapped, ok := m.wrapped[idx]
 	if !ok {
 		segs := m.r.Segments(m.rows[idx])
