@@ -131,8 +131,9 @@ plain", so the failure mode is dull, not broken.
 - **Result-only** drops deletions entirely: read what the file became.
 - **Emphasis** runs a word-level LCS over paired lines and marks only the differing tokens. Lines
   that are too large or too dissimilar are left undivided rather than speckled.
-- Split rows truncate; single-column rows wrap. Comparing two wrapped columns is worse than
-  truncating them, and a diff is usually narrow code.
+- Long lines wrap in every layout. Each half of a split row wraps on its own and the halves are
+  then paired line for line, so a long line makes the row taller instead of being cut at the seam.
+  There is no horizontal scrolling and no toggle.
 - The file header is chrome, not content: it is pinned above the viewport, and changes with the
   file under it. It is a single row on a dim surface, pinned and inline, so a second file arriving
   is visible before it takes the pinned line. The viewport may never start on a header.

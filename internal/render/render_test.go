@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fschrhunt/drif/internal/layout"
 	"github.com/fschrhunt/drif/internal/patch"
 )
 
@@ -102,5 +103,30 @@ func TestListOutputNeutralisesPaths(t *testing.T) {
 	got := strings.Join(ListLines(cs, ""), "\n")
 	if strings.Contains(got, "\x1b") {
 		t.Fatalf("list output carries an escape: %q", got)
+	}
+}
+
+func TestHeightMatchesWrappedLines(t *testing.T) {
+	long := strings.Repeat("a long line of code that has to wrap ", 4)
+	cs := &patch.ChangeSet{Files: []*patch.File{{
+		NewPath: "f.go", Status: patch.Modified, Additions: 1, Deletions: 1,
+		Hunks: []patch.Hunk{{
+			OldStart: 1, OldCount: 2, NewStart: 1, NewCount: 2,
+			Lines: []patch.Line{
+				{Kind: patch.Context, Text: "short", OldNo: 1, NewNo: 1},
+				{Kind: patch.Del, Text: long, OldNo: 2},
+				{Kind: patch.Add, Text: long + "changed", NewNo: 2},
+			},
+		}},
+	}}}
+	for _, mode := range []layout.Mode{layout.Unified, layout.Split} {
+		for _, width := range []int{40, 90} {
+			r := &Renderer{Pal: Dark(), Width: width, Mode: mode, Numbers: true}
+			for _, row := range layout.Build(cs, mode) {
+				if got, want := len(r.SplitLines(row)), r.Height(row); got != want {
+					t.Errorf("mode=%v width=%d row=%v: %d visual lines, height %d", mode, width, row.Kind, got, want)
+				}
+			}
+		}
 	}
 }

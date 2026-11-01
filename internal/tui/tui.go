@@ -647,8 +647,7 @@ func (m *Model) visualLine(n int) string {
 	sub := n - m.starts[idx]
 	wrapped, ok := m.wrapped[idx]
 	if !ok {
-		segs := m.r.Segments(m.rows[idx])
-		wrapped = render.Wrap(segs, m.r.Width)
+		wrapped = m.r.SplitLines(m.rows[idx])
 		if len(m.wrapped) > 256 {
 			m.wrapped = map[int][][]render.Seg{}
 		}
