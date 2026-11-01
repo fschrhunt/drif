@@ -276,8 +276,31 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Con
 	return 0
 }
 
+// syncWriter brackets each write in DECSET 2026, the terminal's synchronized
+// output mode. Bubbletea writes a whole frame in one Write, so the terminal
+// either shows the previous frame or the next one, never half of each. That is
+// the difference between smooth scrolling and lines that visibly slide into
+// place on a high-latency link. Terminals without support ignore the sequence.
+// syncFile keeps the file descriptor: bubbletea only treats its output as a
+// terminal when it can call Fd on it.
+type syncFile struct{ *os.File }
+
+func (s syncFile) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if _, err := io.WriteString(s.File, "\x1b[?2026h"); err != nil {
+		return 0, err
+	}
+	n, err := s.File.Write(p)
+	if _, werr := io.WriteString(s.File, "\x1b[?2026l"); err == nil {
+		err = werr
+	}
+	return n, err
+}
+
 func programOptions(stdinTTY bool) []tea.ProgramOption {
-	opts := []tea.ProgramOption{tea.WithAltScreen()}
+	opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithOutput(syncFile{os.Stdout})}
 	if !stdinTTY {
 		// A patch arrived on stdin, so read keys from the terminal directly.
 		if f, err := os.Open("/dev/tty"); err == nil {
