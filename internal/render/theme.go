@@ -65,6 +65,9 @@ type Palette struct {
 	// FileDim is the directory and status letter inside a file header: lighter
 	// than the global dim, because it sits on the header's own surface.
 	FileDim Color
+	// Panel and PanelSel are the command palette's surface and its selected row.
+	Panel    Color
+	PanelSel Color
 	// FileBg is the dim surface behind a file header. It exists so a header
 	// reads as a strip of chrome rather than a line of content.
 	FileBg Color
@@ -86,6 +89,8 @@ func Dark() *Palette {
 		FileFg:    Hex("#fafafa"),
 		FileDim:   Hex("#9b9b9b"),
 		FileBg:    mix(Hex("#0a0a0a"), Hex("#fafafa"), 0.12),
+		Panel:     mix(Hex("#0a0a0a"), Hex("#fafafa"), 0.07),
+		PanelSel:  mix(Hex("#0a0a0a"), Hex("#fafafa"), 0.18),
 	}
 }
 
@@ -103,6 +108,8 @@ func Light() *Palette {
 		FileFg:    Hex("#0a0a0a"),
 		FileDim:   Hex("#676767"),
 		FileBg:    mix(Hex("#ffffff"), Hex("#0a0a0a"), 0.12),
+		Panel:     mix(Hex("#ffffff"), Hex("#0a0a0a"), 0.07),
+		PanelSel:  mix(Hex("#ffffff"), Hex("#0a0a0a"), 0.18),
 	}
 }
 
@@ -176,6 +183,8 @@ func paletteFor(bg Color) *Palette {
 		FileFg:    mixer,
 		FileDim:   mix(bg, mixer, 0.62),
 		FileBg:    mix(bg, mixer, 0.12),
+		Panel:     mix(bg, mixer, 0.07),
+		PanelSel:  mix(bg, mixer, 0.18),
 	}
 }
 

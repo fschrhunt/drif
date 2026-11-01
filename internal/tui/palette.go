@@ -14,6 +14,7 @@ import (
 // help screen: this list is the only place drif explains itself, which is why
 // nothing else on screen carries key hints.
 type paletteItem struct {
+	glyph string
 	label string
 	hint  string
 	run   func(*Model) tea.Cmd
@@ -61,30 +62,30 @@ func (m *Model) paletteItems() []paletteItem {
 	}
 
 	return []paletteItem{
-		{"Search the diff", bind(keys.Search), func(m *Model) tea.Cmd {
+		{"⌕", "Search the diff", bind(keys.Search), func(m *Model) tea.Cmd {
 			m.typing = true
 			m.input = ""
 			return nil
 		}},
-		{"Next file", bind(keys.NextFile), func(m *Model) tea.Cmd { m.jumpRow(layout.FileRow, 1); return nil }},
-		{"Previous file", bind(keys.PrevFile), func(m *Model) tea.Cmd { m.jumpRow(layout.FileRow, -1); return nil }},
-		{"Next change", bind(keys.NextHunk), func(m *Model) tea.Cmd { m.jumpRow(layout.HunkRow, 1); return nil }},
-		{"Previous change", bind(keys.PrevHunk), func(m *Model) tea.Cmd { m.jumpRow(layout.HunkRow, -1); return nil }},
-		{"Go to the top", bind(keys.Top), func(m *Model) tea.Cmd { m.top = 0; m.clampTop(); return nil }},
-		{"Go to the bottom", bind(keys.Bottom), func(m *Model) tea.Cmd { m.top = m.maxTop(); m.clampTop(); return nil }},
-		{"Layout: side by side", "", setMode(layout.Split)},
-		{"Layout: unified", "", setMode(layout.Unified)},
-		{"Layout: result only", "", setMode(layout.New)},
-		{"Theme: dark", "", setTheme("dark")},
-		{"Theme: light", "", setTheme("light")},
-		{"Theme: follow the terminal", "", setTheme("auto")},
-		{"Toggle line numbers", bind(keys.ToggleNumbers), func(m *Model) tea.Cmd {
+		{"→", "Next file", bind(keys.NextFile), func(m *Model) tea.Cmd { m.jumpRow(layout.FileRow, 1); return nil }},
+		{"←", "Previous file", bind(keys.PrevFile), func(m *Model) tea.Cmd { m.jumpRow(layout.FileRow, -1); return nil }},
+		{"↕", "Next change", bind(keys.NextHunk), func(m *Model) tea.Cmd { m.jumpRow(layout.HunkRow, 1); return nil }},
+		{"↕", "Previous change", bind(keys.PrevHunk), func(m *Model) tea.Cmd { m.jumpRow(layout.HunkRow, -1); return nil }},
+		{"↑", "Go to the top", bind(keys.Top), func(m *Model) tea.Cmd { m.top = 0; m.clampTop(); return nil }},
+		{"↓", "Go to the bottom", bind(keys.Bottom), func(m *Model) tea.Cmd { m.top = m.maxTop(); m.clampTop(); return nil }},
+		{"◫", "Layout: side by side", "", setMode(layout.Split)},
+		{"▭", "Layout: unified", "", setMode(layout.Unified)},
+		{"▯", "Layout: result only", "", setMode(layout.New)},
+		{"◐", "Theme: dark", "", setTheme("dark")},
+		{"○", "Theme: light", "", setTheme("light")},
+		{"◑", "Theme: follow the terminal", "", setTheme("auto")},
+		{"#", "Toggle line numbers", bind(keys.ToggleNumbers), func(m *Model) tea.Cmd {
 			m.numbers = !m.numbers
 			m.rebuild()
 			return nil
 		}},
-		{"Reload configuration", bind(keys.Reload), func(m *Model) tea.Cmd { return m.reloadConfig() }},
-		{"Quit", bind(keys.Quit), func(m *Model) tea.Cmd { return tea.Quit }},
+		{"↻", "Reload configuration", bind(keys.Reload), func(m *Model) tea.Cmd { return m.reloadConfig() }},
+		{"✕", "Quit", bind(keys.Quit), func(m *Model) tea.Cmd { return tea.Quit }},
 	}
 }
 
@@ -126,6 +127,9 @@ func (m *Model) paletteKey(msg tea.KeyMsg) tea.Cmd {
 		}
 		item := items[m.palIndex]
 		m.palette = false
+		if item.run == nil {
+			return nil
+		}
 		return item.run(m)
 	case "backspace":
 		if m.palQuery != "" {
@@ -144,53 +148,174 @@ func (m *Model) paletteKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// paletteView draws the list over the whole screen. The only furniture is a
-// prompt and rows: no border, no title bar, no footer.
+// paletteView draws the palette as a floating panel over a blank page: search
+// field, a section label, rows with their bindings, and a footer with the three
+// keys that navigate it. Nothing here is printed anywhere else.
 func (m *Model) paletteView() string {
 	items := m.filtered()
 	if len(items) == 0 {
-		return render.ANSI([]render.Seg{
-			{Text: " ?", Style: render.Style{Fg: m.r.Pal.Dim}},
-			{Text: m.palQuery},
-			{Text: "▏", Style: render.Style{Fg: m.r.Pal.Dim}},
-			{Text: "   no matching command", Style: render.Style{Fg: m.r.Pal.Dim}},
-		}, m.r.Depth) + "\n"
+		items = []paletteItem{{"·", "No matching command", "", nil}}
 	}
 	if m.palIndex >= len(items) {
 		m.palIndex = len(items) - 1
 	}
 
-	var b strings.Builder
-	b.WriteString(render.ANSI([]render.Seg{
-		{Text: " ?", Style: render.Style{Fg: m.r.Pal.Dim}},
-		{Text: m.palQuery},
-		{Text: "▏", Style: render.Style{Fg: m.r.Pal.Dim}},
-	}, m.r.Depth))
-	b.WriteByte('\n')
-
-	for i, item := range items {
-		if i >= m.height-1 {
-			break
-		}
-		labelStyle := render.Style{}
-		hintStyle := render.Style{Fg: m.r.Pal.Dim}
-		if i == m.palIndex {
-			labelStyle = render.Style{Reverse: true}
-			hintStyle = render.Style{Reverse: true}
-		}
-		label := " " + item.label
-		gap := m.r.Width - render.Width([]render.Seg{{Text: label}}) - len(item.hint) - 2
-		if gap < 1 {
-			gap = 1
-		}
-		row := []render.Seg{
-			{Text: label, Style: labelStyle},
-			{Text: strings.Repeat(" ", gap), Style: labelStyle},
-			{Text: item.hint, Style: hintStyle},
-			{Text: "  ", Style: hintStyle},
-		}
-		b.WriteString(render.ANSI(render.Fit(row, m.r.Width, labelStyle), m.r.Depth))
-		b.WriteByte('\n')
+	width := m.width
+	boxW := width - 8
+	if boxW > 78 {
+		boxW = 78
 	}
-	return b.String()
+	if boxW < 40 {
+		boxW = width - 2
+	}
+	if boxW < 16 {
+		boxW = width
+	}
+	inner := boxW - 2
+
+	maxItems := m.height - 8
+	if maxItems < 1 {
+		maxItems = 1
+	}
+	start := 0
+	if m.palIndex >= maxItems {
+		start = m.palIndex - maxItems + 1
+	}
+	shown := items[start:]
+	if len(shown) > maxItems {
+		shown = shown[:maxItems]
+	}
+
+	boxH := 7 + len(shown)
+	top := (m.height - boxH) / 4
+	if top < 0 {
+		top = 0
+	}
+	left := (width - boxW) / 2
+	if left < 0 {
+		left = 0
+	}
+
+	lines := make([]string, 0, m.height)
+	blank := strings.Repeat(" ", width)
+	for i := 0; i < top && len(lines) < m.height; i++ {
+		lines = append(lines, blank)
+	}
+
+	lines = append(lines,
+		m.panelEdge(left, width, m.borderSeg("╭", inner, "╮")),
+		m.panelLine(left, width, m.searchSeg(inner)),
+		m.panelLine(left, width, m.panelPad(nil, inner)),
+		m.panelLine(left, width, m.sectionSeg(inner)),
+	)
+	for i, item := range shown {
+		lines = append(lines, m.panelLine(left, width, m.itemSeg(item, i+start == m.palIndex, inner)))
+	}
+	lines = append(lines,
+		m.panelLine(left, width, m.panelPad(nil, inner)),
+		m.panelLine(left, width, m.footerSeg(inner)),
+		m.panelEdge(left, width, m.borderSeg("╰", inner, "╯")),
+	)
+	for len(lines) < m.height {
+		lines = append(lines, blank)
+	}
+	return strings.Join(lines[:m.height], "\n")
+}
+
+// panelEdge draws a top or bottom border row, which brings its own corners.
+func (m *Model) panelEdge(left, width int, content []render.Seg) string {
+	right := width - left - render.Width(content)
+	if right < 0 {
+		right = 0
+	}
+	segs := []render.Seg{{Text: strings.Repeat(" ", left)}}
+	segs = append(segs, content...)
+	segs = append(segs, render.Seg{Text: strings.Repeat(" ", right)})
+	return render.ANSI(segs, m.r.Depth)
+}
+
+// panelLine frames one row of the panel: border, content, border, centred.
+func (m *Model) panelLine(left, width int, content []render.Seg) string {
+	edge := render.Style{Fg: m.r.Pal.Dim, Bg: m.r.Pal.Panel}
+	pad := strings.Repeat(" ", left)
+	right := strings.Repeat(" ", width-left-render.Width(content)-2)
+	if len(right) < 0 {
+		right = ""
+	}
+	segs := []render.Seg{
+		{Text: pad},
+		{Text: "│", Style: edge},
+	}
+	segs = append(segs, content...)
+	segs = append(segs, render.Seg{Text: "│", Style: edge}, render.Seg{Text: right})
+	return render.ANSI(segs, m.r.Depth)
+}
+
+func (m *Model) borderSeg(left string, n int, right string) []render.Seg {
+	if n < 0 {
+		n = 0
+	}
+	edge := render.Style{Fg: m.r.Pal.Dim, Bg: m.r.Pal.Panel}
+	return []render.Seg{{Text: left + strings.Repeat("─", n) + right, Style: edge}}
+}
+
+func (m *Model) panelPad(segs []render.Seg, w int) []render.Seg {
+	return render.Fit(segs, w, render.Style{Bg: m.r.Pal.Panel})
+}
+
+func (m *Model) searchSeg(inner int) []render.Seg {
+	dim := render.Style{Fg: m.r.Pal.Dim, Bg: m.r.Pal.Panel}
+	text := render.Style{Bg: m.r.Pal.Panel}
+	segs := []render.Seg{
+		{Text: " ⌕ ", Style: dim},
+	}
+	if m.palQuery == "" {
+		segs = append(segs,
+			render.Seg{Text: "Search commands", Style: dim},
+			render.Seg{Text: "▏", Style: text},
+		)
+	} else {
+		segs = append(segs,
+			render.Seg{Text: m.palQuery, Style: text},
+			render.Seg{Text: "▏", Style: text},
+		)
+	}
+	return m.panelPad(segs, inner)
+}
+
+func (m *Model) sectionSeg(inner int) []render.Seg {
+	segs := []render.Seg{{Text: "  Commands", Style: render.Style{Fg: m.r.Pal.Dim, Bg: m.r.Pal.Panel}}}
+	return m.panelPad(segs, inner)
+}
+
+func (m *Model) footerSeg(inner int) []render.Seg {
+	segs := []render.Seg{{
+		Text:  "  ↑↓ navigate   ↵ select   esc close",
+		Style: render.Style{Fg: m.r.Pal.Dim, Bg: m.r.Pal.Panel},
+	}}
+	return m.panelPad(segs, inner)
+}
+
+func (m *Model) itemSeg(item paletteItem, selected bool, inner int) []render.Seg {
+	bg := m.r.Pal.Panel
+	if selected {
+		bg = m.r.Pal.PanelSel
+	}
+	base := render.Style{Bg: bg}
+	label := render.Style{Bg: bg}
+	hint := render.Style{Fg: m.r.Pal.Dim, Bg: bg}
+
+	left := " " + item.glyph + "  "
+	gap := inner - render.Width([]render.Seg{{Text: left}}) - render.Width([]render.Seg{{Text: item.label}}) - render.Width([]render.Seg{{Text: item.hint}}) - 2
+	if gap < 1 {
+		gap = 1
+	}
+	segs := []render.Seg{
+		{Text: left, Style: base},
+		{Text: item.label, Style: label},
+		{Text: strings.Repeat(" ", gap), Style: base},
+		{Text: item.hint, Style: hint},
+		{Text: " ", Style: base},
+	}
+	return render.Fit(segs, inner, base)
 }
