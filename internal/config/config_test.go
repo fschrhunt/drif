@@ -42,7 +42,7 @@ down = ["e", "down"]
 	if cfg.Theme != "mine" || cfg.Layout != "split" || cfg.Context != 7 {
 		t.Errorf("cfg = %+v", cfg)
 	}
-	if cfg.Numbers || cfg.Untracked || !cfg.Watch || cfg.Base != "origin/main" {
+	if cfg.Numbers || cfg.Untracked || cfg.Base != "origin/main" {
 		t.Errorf("cfg = %+v", cfg)
 	}
 	// A bare string and a list must both work.

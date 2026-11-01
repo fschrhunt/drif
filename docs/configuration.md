@@ -40,7 +40,6 @@ layout = "auto"
 context = 3
 numbers = true
 untracked = true
-watch = false
 # base = "origin/main"
 ```
 

@@ -35,7 +35,6 @@ type Options struct {
 	Palette *render.Palette
 	Bind    *keys.Map
 	Repo    *git.Repo
-	Watch   bool
 	// Reload re-reads the working tree.
 	Reload func() (*patch.ChangeSet, error)
 	// Refresh re-reads the configuration.
@@ -78,8 +77,9 @@ type Model struct {
 	auto     bool
 	userMode bool
 	repo     *git.Repo
-	watchOn  bool
 	watch    *watcher
+	loading  bool
+	pending  bool
 	reload   func() (*patch.ChangeSet, error)
 	refresh  func() (*Refresh, error)
 	themefn  func(string) (*render.Palette, error)
@@ -106,7 +106,6 @@ func New(cs *patch.ChangeSet, opts Options) *Model {
 		bind:    bind,
 		auto:    opts.Auto,
 		repo:    opts.Repo,
-		watchOn: opts.Watch,
 		reload:  opts.Reload,
 		refresh: opts.Refresh,
 		themefn: opts.Theme,
@@ -123,11 +122,12 @@ func New(cs *patch.ChangeSet, opts Options) *Model {
 
 // Init implements tea.Model.
 func (m *Model) Init() tea.Cmd {
-	if !m.watchOn || m.repo == nil || m.reload == nil {
+	if m.repo == nil || m.reload == nil {
 		return nil
 	}
 	w, err := newWatcher(m.repo.Root)
 	if err != nil {
+		m.message = "live updates unavailable: " + err.Error()
 		return nil
 	}
 	m.watch = w
@@ -146,10 +146,27 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case reloadMsg:
-		m.reloadTree()
-		m.wrapped = map[int][][]render.Seg{}
-		if w := m.watch; w != nil {
-			return m, w.wait()
+		var cmd tea.Cmd
+		if m.loading {
+			m.pending = true
+		} else {
+			cmd = m.loadTree()
+		}
+		if m.watch != nil {
+			return m, tea.Batch(cmd, m.watch.wait())
+		}
+		return m, cmd
+
+	case treeLoadedMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.message = msg.err.Error()
+		} else {
+			m.applyTree(msg.cs)
+		}
+		if m.pending {
+			m.pending = false
+			return m, m.loadTree()
 		}
 		return m, nil
 
@@ -366,21 +383,41 @@ func (m *Model) reloadConfig() tea.Cmd {
 	return nil
 }
 
-// reloadTree re-reads the working tree, keeping the reader roughly in place.
-func (m *Model) reloadTree() {
-	if m.reload == nil {
-		return
+// treeLoadedMsg returns a background Git load to the update loop.
+type treeLoadedMsg struct {
+	cs  *patch.ChangeSet
+	err error
+}
+
+// loadTree starts one background load without blocking navigation.
+func (m *Model) loadTree() tea.Cmd {
+	m.loading = true
+	reload := m.reload
+	return func() tea.Msg {
+		cs, err := reload()
+		return treeLoadedMsg{cs: cs, err: err}
 	}
+}
+
+// applyTree replaces the diff while keeping the reader roughly in place.
+func (m *Model) applyTree(cs *patch.ChangeSet) {
 	idx := m.rowAt(m.top)
-	cs, err := m.reload()
-	if err != nil {
-		m.message = err.Error()
-		return
-	}
 	m.cs = cs
 	m.rebuild()
 	if idx < len(m.starts) {
 		m.top = m.starts[idx]
+	}
+	m.clampTop()
+	m.matches = m.findMatches()
+	if m.matchAt >= len(m.matches) {
+		m.matchAt = 0
+	}
+}
+
+// Close releases filesystem resources when the interactive view exits.
+func (m *Model) Close() {
+	if m.watch != nil {
+		_ = m.watch.fw.Close()
 	}
 }
 

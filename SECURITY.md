@@ -46,6 +46,6 @@ account.
 
 Config and theme files are TOML values: no scripts, no includes, no code.
 
-`drif --watch` uses the platform's file notification API and reads only inside
+The interactive worktree view uses the platform's file notification API and reads only inside
 the repository. drif makes no network requests; resolving the base and the merge
 base reads local references and never fetches.

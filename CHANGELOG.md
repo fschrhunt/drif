@@ -1,5 +1,10 @@
 # drif releases
 
+## Unreleased
+
+- The interactive worktree view updates automatically; Git reloads run in the background.
+  The `--watch` flag and `watch` setting are no longer needed.
+
 ## v0.1.1 · 2026-11-01
 
 - Monochrome: colour now means added or removed and nothing else. Only changed lines paint a
