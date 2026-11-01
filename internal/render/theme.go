@@ -62,6 +62,9 @@ type Palette struct {
 
 	HunkFg Color
 	FileFg Color
+	// FileDim is the directory and status letter inside a file header: lighter
+	// than the global dim, because it sits on the header's own surface.
+	FileDim Color
 	// FileBg is the dim surface behind a file header. It exists so a header
 	// reads as a strip of chrome rather than a line of content.
 	FileBg Color
@@ -80,6 +83,8 @@ func Dark() *Palette {
 		DelBg:     Hex("#3b1114"),
 		DelEmphBg: Hex("#62171d"),
 		HunkFg:    Hex("#636363"),
+		FileFg:    Hex("#fafafa"),
+		FileDim:   Hex("#9b9b9b"),
 		FileBg:    mix(Hex("#0a0a0a"), Hex("#fafafa"), 0.12),
 	}
 }
@@ -95,6 +100,8 @@ func Light() *Palette {
 		DelBg:     Hex("#ffe6e8"),
 		DelEmphBg: Hex("#f0abb0"),
 		HunkFg:    Hex("#636363"),
+		FileFg:    Hex("#0a0a0a"),
+		FileDim:   Hex("#676767"),
 		FileBg:    mix(Hex("#ffffff"), Hex("#0a0a0a"), 0.12),
 	}
 }
@@ -166,6 +173,8 @@ func paletteFor(bg Color) *Palette {
 		DelBg:     mix(bg, del, 0.20),
 		DelEmphBg: mix(bg, del, 0.34),
 		HunkFg:    Hex("#636363"),
+		FileFg:    mixer,
+		FileDim:   mix(bg, mixer, 0.62),
 		FileBg:    mix(bg, mixer, 0.12),
 	}
 }

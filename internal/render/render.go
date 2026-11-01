@@ -93,16 +93,16 @@ func (r *Renderer) fileSegs(f *patch.File) []Seg {
 	left := []Seg{{Text: " ", Style: bg}}
 
 	path := expand.Expand(strings.TrimPrefix(f.Path(), r.Prefix))
-	dir, base := path, ""
+	dir, base := "", path
 	if i := strings.LastIndexByte(path, '/'); i >= 0 {
 		dir, base = path[:i+1], path[i+1:]
 	}
 	if dir != "" {
-		left = append(left, Seg{Text: dir, Style: Style{Fg: r.Pal.Dim, Bg: r.Pal.FileBg}})
+		left = append(left, Seg{Text: dir, Style: Style{Fg: r.Pal.FileDim, Bg: r.Pal.FileBg}})
 	}
 	left = append(left, Seg{Text: base, Style: Style{Fg: r.Pal.FileFg, Bg: r.Pal.FileBg, Bold: true}})
 	if f.Status != patch.Modified {
-		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.Dim, Bg: r.Pal.FileBg}})
+		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.FileDim, Bg: r.Pal.FileBg}})
 	}
 
 	right := make([]Seg, 0, 4)
@@ -215,9 +215,9 @@ func (r *Renderer) unifiedFromSplit(row layout.Row) []Seg {
 
 func (r *Renderer) cellSegs(f *patch.File, c *layout.Cell, old bool, w, gutter int) []Seg {
 	if c == nil {
-		// The empty half of an unpaired change is a dim block, the same surface
-		// as a file header: it is a gap in one side, not a change of its own.
-		return []Seg{{Text: strings.Repeat(" ", w), Style: Style{Bg: r.Pal.FileBg}}}
+		// The empty half of an unpaired change stays blank: a gap is not a
+		// change, and painting it made it look like one.
+		return []Seg{{Text: strings.Repeat(" ", w), Style: Style{}}}
 	}
 	base := r.baseStyle(signOf(c.Kind))
 	segs := make([]Seg, 0, 8)
