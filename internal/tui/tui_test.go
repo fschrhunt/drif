@@ -227,3 +227,12 @@ func TestSearchAcceptsSpaces(t *testing.T) {
 		t.Fatalf("input = %q", m.input)
 	}
 }
+
+func TestPageStepKeepsOverlap(t *testing.T) {
+	if got := pageStep(20); got != 18 {
+		t.Fatalf("pageStep(20) = %d, want 18", got)
+	}
+	if got := pageStep(3); got != 3 {
+		t.Fatalf("pageStep(3) = %d, want 3", got)
+	}
+}

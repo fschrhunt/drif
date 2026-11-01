@@ -263,6 +263,12 @@ func runTUI(cs *patch.ChangeSet, cfg *config.Config, resolve func() (*config.Con
 		Refresh: refresh,
 		Theme:   themeFor,
 	}
+	// Alternate scroll mode: in the alternate screen the terminal turns wheel
+	// events into arrow keys, which drif already scrolls with. That gives a
+	// wheel without capturing the mouse, so drag-to-select keeps working.
+	fmt.Fprint(os.Stdout, "\x1b[?1007h")
+	defer fmt.Fprint(os.Stdout, "\x1b[?1007l")
+
 	if _, err := tea.NewProgram(tui.New(cs, opts), programOptions(stdinTTY)...).Run(); err != nil {
 		fmt.Fprintf(stderr, "drif: %v\n", err)
 		return 2

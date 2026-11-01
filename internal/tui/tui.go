@@ -199,9 +199,9 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 	case keys.HalfUp:
 		m.scroll(-body / 2)
 	case keys.PageDown:
-		m.scroll(body)
+		m.scroll(pageStep(body))
 	case keys.PageUp:
-		m.scroll(-body)
+		m.scroll(-pageStep(body))
 	case keys.Top:
 		m.top = 0
 	case keys.Bottom:
@@ -448,11 +448,20 @@ func (m *Model) rebuild() {
 	m.clampTop()
 }
 
-func (m *Model) bodyHeight() int {
-	h := m.height - 1 // pinned file header
-	if m.chromeVisible() {
-		h--
+// pageStep is a page minus two lines, so the first lines of the next page are
+// the last lines of this one. A pager that steps a whole page makes the reader
+// find their place again every time.
+func pageStep(body int) int {
+	if body > 3 {
+		return body - 2
 	}
+	return body
+}
+
+func (m *Model) bodyHeight() int {
+	// The chrome line overlays the last row instead of shrinking the viewport,
+	// so opening a search prompt never moves the diff.
+	h := m.height - 1 // pinned file header
 	if h < 1 {
 		return 1
 	}
@@ -624,17 +633,21 @@ func (m *Model) View() string {
 	}
 	body := m.bodyHeight()
 	chrome := m.chromeVisible()
+	visible := body
+	if chrome {
+		visible--
+	}
 
 	var b strings.Builder
 	b.WriteString(m.headerLine())
 	b.WriteByte('\n')
-	for i := 0; i < body; i++ {
+	for i := 0; i < visible; i++ {
 		line := m.top + i
 		if line < m.total {
 			b.WriteString(m.visualLine(line))
 		}
 		b.WriteString("\x1b[0m")
-		if i < body-1 || chrome {
+		if i < visible-1 || chrome {
 			b.WriteByte('\n')
 		}
 	}
