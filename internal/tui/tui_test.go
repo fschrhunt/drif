@@ -259,3 +259,30 @@ func TestPageStepKeepsOverlap(t *testing.T) {
 		t.Fatalf("pageStep(3) = %d, want 3", got)
 	}
 }
+
+// TestReloadCoalescesChanges checks that Git work runs in a command and that
+// changes arriving during a load cause exactly one subsequent load.
+func TestReloadCoalescesChanges(t *testing.T) {
+	calls := 0
+	m := New(fixture(), Options{Reload: func() (*patch.ChangeSet, error) {
+		calls++
+		return fixture(), nil
+	}})
+	_, cmd := m.Update(reloadMsg{})
+	if cmd == nil || calls != 0 {
+		t.Fatal("reload should be scheduled without running in Update")
+	}
+	m.Update(reloadMsg{})
+	m.Update(reloadMsg{})
+	if !m.pending {
+		t.Fatal("changes during loading must schedule a follow-up")
+	}
+	_, next := m.Update(cmd())
+	if calls != 1 || next == nil {
+		t.Fatal("expected one follow-up load")
+	}
+	_, last := m.Update(next())
+	if calls != 2 || last != nil || m.loading {
+		t.Fatal("multiple changes should coalesce into one follow-up load")
+	}
+}

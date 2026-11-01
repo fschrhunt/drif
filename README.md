@@ -55,7 +55,7 @@ and untracked — as one surface.
 - **Word-level emphasis** inside changed pairs, so a one-character edit reads as a one-character
   edit.
 - **Hunk boundaries read like prose** — `⋯ func main()` instead of `@@ -1,8 +1,9 @@`.
-- **`--watch`** reloads the surface as you edit.
+- **Live updates** reload the interactive worktree view as you edit.
 
 ### Command palette
 

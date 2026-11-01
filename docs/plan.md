@@ -214,7 +214,7 @@ pick "Search…" before typing is friction on the one action they repeat constan
 
 1. A file rail for changesets with dozens of files. `n`/`p` covers the common case, but a list is
    better when you cannot see the boundaries.
-2. `--watch` currently re-walks the watched tree only at startup; directories created later are
+2. The watcher currently re-walks the watched tree only at startup; directories created later are
    added when the event arrives, but a moved tree can outrun it.
 3. Highlighting in pager mode. It needs hunk-scoped tokenising, because the working tree is not
    necessarily the revision that produced a piped patch, and colouring from the wrong file is

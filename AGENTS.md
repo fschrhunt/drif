@@ -24,7 +24,7 @@
   parser tests enumerate every awkward shape git can emit.
 - `internal/layout/`: rows, split pairing, word-level emphasis. Width-independent by design.
 - `internal/render/`: palette detection, ANSI encoding, width maths, plain text, list output, JSON.
-- `internal/tui/`: the bubbletea model and the fsnotify watcher behind `--watch`.
+- `internal/tui/`: the bubbletea model and the fsnotify watcher for live updates.
 - `install.sh`: downloads a release, checks it against `checksums.txt`, and links `git-drif`.
 - `scripts/release.sh`: the two-step release (changelog PR, then tag through Actions).
 - `scripts/formula.sh` and `scripts/formula_pr.py`: generate `drif.rb` from release checksums and

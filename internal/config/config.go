@@ -50,7 +50,6 @@ type Config struct {
 	Numbers   bool               `toml:"numbers"`
 	Context   int                `toml:"context"`
 	Untracked bool               `toml:"untracked"`
-	Watch     bool               `toml:"watch"`
 	Base      string             `toml:"base"`
 	Keys      map[string]KeyList `toml:"keys"`
 	Colors    theme.ColorSet     `toml:"colors"`
@@ -68,7 +67,6 @@ func Default() *Config {
 		Numbers:   true,
 		Context:   3,
 		Untracked: true,
-		Watch:     false,
 		Keys:      map[string]KeyList{},
 	}
 }
@@ -95,8 +93,11 @@ func Load(explicit string) (*Config, string, error) {
 	if err != nil {
 		return nil, path, fmt.Errorf("%s: %w", path, err)
 	}
-	if undecoded := md.Undecoded(); len(undecoded) > 0 {
-		return nil, path, fmt.Errorf("%s: unknown key %q", path, undecoded[0].String())
+	for _, key := range md.Undecoded() {
+		// Older configs may contain the removed watch setting.
+		if key.String() != "watch" {
+			return nil, path, fmt.Errorf("%s: unknown key %q", path, key.String())
+		}
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, path, fmt.Errorf("%s: %w", path, err)
@@ -161,7 +162,6 @@ context = 3
 
 numbers = true
 untracked = true
-watch = false
 
 # Compare against something other than the detected base branch.
 # base = "origin/main"
@@ -206,7 +206,7 @@ type Repo struct {
 // error can explain why instead of calling a familiar word "unknown".
 var personal = map[string]bool{
 	"theme": true, "colors": true, "keys": true, "layout": true,
-	"numbers": true, "context": true, "untracked": true, "watch": true,
+	"numbers": true, "context": true, "untracked": true,
 }
 
 // LoadRepo reads <root>/.drif.toml. A missing file is not an error.
