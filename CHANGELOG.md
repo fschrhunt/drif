@@ -1,23 +1,28 @@
 # drif releases
 
+## Unreleased
+
+- Monochrome: colour now means added or removed and nothing else. Only changed lines paint a
+  background; headers, hunk separators and metadata are text on the terminal's own background.
+  Syntax highlighting is gone with its lexer cache.
+- The file header is pinned to the top on a dim surface blended from the terminal's own
+  background, and follows the file being read.
+- Hunk boundaries read `⋯ 9 lines` or `⋯ func main()`, not `@@ -1,8 +1,9 @@`.
+- Split view joins the panes at the seam, and the empty half of an unpaired change stays blank.
+- Long lines wrap in both layouts; there is no horizontal scrolling and no toggle.
+- `/` and `?` open a floating command palette with a real caret. Search lives there now, listing
+  matching lines with `file:line`; the bottom search bar is gone.
+- Page scrolling overlaps by two lines, the prompt overlays the bottom row instead of moving the
+  diff, and the wheel scrolls through alternate scroll mode without capturing the mouse.
+- Frames are presented atomically, so scrolling does not tear on a slow link.
+
 ## v0.1.0 · 2026-10-31
 
 - First version. Run `drif` in a worktree to review everything changed since the merge base with
   the base branch, including untracked files.
 - Three layouts: side-by-side comparison, unified, and result-only. One key cycles them.
-- A monochrome palette: only additions and deletions carry colour, and only changed lines paint a
-  background. Headers, hunk separators and metadata are text on the terminal's own background.
-- The file header sits on a dim surface blended from the terminal's own background, and no longer
-  repeats the same file as an inline row when the diff is shorter than the screen.
-- Only changed lines paint a background now; everything else is ink, so the view adapts to the
-  terminal instead of covering it. Colours follow the diff palette: green `#07c480`, red `#ff2e3f`,
-  bands mixed 20% into the page.
-- Hunk boundaries read `⋯ 9 lines` or `⋯ func main()` instead of `@@ -1,8 +1,9 @@`.
-- Split view separates the halves with blank columns rather than a drawn divider.
-- `?` opens a command palette: search, jump, layout, theme, line numbers, reload, quit. Key hints
-  are no longer printed anywhere; the palette is the only place the interface explains itself. The file header is pinned to the
-  top and follows the file you are reading; there is no status line unless you are searching,
-  typing a command, or reading an error.
+- Syntax highlighting tokenises the file rather than the hunk, so multi-line constructs stay
+  correct, and fills in after the first paint instead of blocking it.
 - Word-level emphasis inside changed line pairs, so a one-character edit reads as a one-character
   edit.
 - `drif --list`, `drif --file PATH` and `drif --json` give scripts and agents a cheap index and
