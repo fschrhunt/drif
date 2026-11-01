@@ -1,0 +1,33 @@
+name: Bug report
+description: Report unexpected behavior in drif.
+title: "Bug: "
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+      description: Explain what you expected and what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include a minimal example without sensitive values.
+    validations:
+      required: true
+  - type: textarea
+    id: version
+    attributes:
+      label: drif --version output
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: drif config output
+      description: Remove anything you do not want to share.
+      render: text
+    validations:
+      required: false
