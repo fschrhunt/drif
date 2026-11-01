@@ -13,23 +13,23 @@ class Drif < Formula
 
   on_macos do
     on_arm do
-      url 'https://github.com/fschrhunt/drif/releases/download/v0.1.0/drif_v0.1.0_darwin_arm64.tar.gz'
-      sha256 'bb704f04f840f0ceb9fda7e4d298727186b02abf48f4dee6e80728cb3d572602'
+      url 'https://github.com/fschrhunt/drif/releases/download/v0.1.1/drif_v0.1.1_darwin_arm64.tar.gz'
+      sha256 '86fe343f9992d1e8c2921b67020696ae21868c6ad6377f947e161dae02a9f41e'
     end
     on_intel do
-      url 'https://github.com/fschrhunt/drif/releases/download/v0.1.0/drif_v0.1.0_darwin_amd64.tar.gz'
-      sha256 '7b3f1f4b0da880c21e303752cad9838af4c235b381d05ff2bc68949a60d53b2d'
+      url 'https://github.com/fschrhunt/drif/releases/download/v0.1.1/drif_v0.1.1_darwin_amd64.tar.gz'
+      sha256 'd610671901bce299293714f9e1d27c2fb4f0c1adfdbdc3b66538588c16b7c518'
     end
   end
 
   on_linux do
     on_arm do
-      url 'https://github.com/fschrhunt/drif/releases/download/v0.1.0/drif_v0.1.0_linux_arm64.tar.gz'
-      sha256 '81ef738f92e311241ef75fd4c4cc5617f10acd7f9c0b945e61a7efa298164eaa'
+      url 'https://github.com/fschrhunt/drif/releases/download/v0.1.1/drif_v0.1.1_linux_arm64.tar.gz'
+      sha256 'a8c3f647d6e2886e02bee5798fdcace065ba6e9afed7b1c2c8100de415f487ba'
     end
     on_intel do
-      url 'https://github.com/fschrhunt/drif/releases/download/v0.1.0/drif_v0.1.0_linux_amd64.tar.gz'
-      sha256 '1ff8cdfd70d480758a1566fb6f77c654a754f2539761b261aa76590434af56a6'
+      url 'https://github.com/fschrhunt/drif/releases/download/v0.1.1/drif_v0.1.1_linux_amd64.tar.gz'
+      sha256 'a955cefd9cc2df98cb3978eb47dd4a3f6ac5c0cb4397eb51d66556078bb621f5'
     end
   end
 
@@ -45,6 +45,6 @@ class Drif < Formula
   end
 
   test do
-    assert_equal 'v0.1.0', shell_output("#{bin}/drif --version").strip.split.last
+    assert_equal 'v0.1.1', shell_output("#{bin}/drif --version").strip.split.last
   end
 end
