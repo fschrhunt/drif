@@ -121,8 +121,8 @@ func TestSearchFindsAndJumps(t *testing.T) {
 	if len(m.matches) == 0 {
 		t.Fatal("no matches")
 	}
-	if !strings.Contains(stripANSI(m.View()), "1/") {
-		t.Errorf("status bar should show match position")
+	if m.palette {
+		t.Fatal("choosing a result should close the panel")
 	}
 }
 
@@ -218,12 +218,44 @@ func TestColonCommands(t *testing.T) {
 	}
 }
 
-func TestSearchAcceptsSpaces(t *testing.T) {
+func TestPaletteSearchAcceptsSpaces(t *testing.T) {
 	m := newModel(layout.Unified)
 	m.Update(press("/"))
+	if !m.palette || m.palMode != paletteSearch {
+		t.Fatalf("slash should open the panel in search mode")
+	}
 	m.Update(tea.KeyMsg{Type: tea.KeySpace, Runes: []rune(" ")})
 	m.Update(press("x"))
-	if m.input != " x" {
-		t.Fatalf("input = %q", m.input)
+	if m.palQuery != " x" {
+		t.Fatalf("query = %q", m.palQuery)
+	}
+}
+
+func TestPaletteCaretEditsInPlace(t *testing.T) {
+	m := newModel(layout.Unified)
+	m.openPalette(paletteSearch)
+	m.insertAt("hello")
+	m.palCursor = 2
+	m.insertAt("X")
+	if m.palQuery != "heXllo" {
+		t.Fatalf("after insert = %q", m.palQuery)
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if m.palQuery != "hello" {
+		t.Fatalf("after backspace = %q", m.palQuery)
+	}
+	m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	m.Update(tea.KeyMsg{Type: tea.KeyDelete})
+	if m.palQuery != "hllo" {
+		t.Fatalf("after delete = %q", m.palQuery)
+	}
+}
+
+func TestPageStepKeepsOverlap(t *testing.T) {
+	if got := pageStep(20); got != 18 {
+		t.Fatalf("pageStep(20) = %d, want 18", got)
+	}
+	if got := pageStep(3); got != 3 {
+		t.Fatalf("pageStep(3) = %d, want 3", got)
 	}
 }

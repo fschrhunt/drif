@@ -7,8 +7,8 @@
 - Three layouts: side-by-side comparison, unified, and result-only. One key cycles them.
 - A monochrome palette: only additions and deletions carry colour, and only changed lines paint a
   background. Headers, hunk separators and metadata are text on the terminal's own background.
-- The pinned file header is separated from the diff by a single dim rule, and no longer repeats the
-  same file as an inline row when the diff is shorter than the screen.
+- The file header sits on a dim surface blended from the terminal's own background, and no longer
+  repeats the same file as an inline row when the diff is shorter than the screen.
 - Only changed lines paint a background now; everything else is ink, so the view adapts to the
   terminal instead of covering it. Colours follow the diff palette: green `#07c480`, red `#ff2e3f`,
   bands mixed 20% into the page.

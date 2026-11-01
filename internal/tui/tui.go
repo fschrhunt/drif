@@ -61,8 +61,6 @@ type Model struct {
 	top    int
 
 	query   string
-	typing  bool
-	input   string
 	matches []int
 	matchAt int
 
@@ -70,10 +68,12 @@ type Model struct {
 	cmdInput string
 	message  string
 
-	palette  bool
-	palQuery string
-	palIndex int
-	wrapped  map[int][][]render.Seg
+	palette   bool
+	palMode   paletteMode
+	palQuery  string
+	palCursor int
+	palIndex  int
+	wrapped   map[int][][]render.Seg
 
 	auto     bool
 	userMode bool
@@ -157,8 +157,6 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch {
 		case m.palette:
 			return m, m.paletteKey(msg)
-		case m.typing:
-			return m, m.typingKey(msg)
 		case m.cmdMode:
 			return m, m.commandKey(msg)
 		}
@@ -199,9 +197,9 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 	case keys.HalfUp:
 		m.scroll(-body / 2)
 	case keys.PageDown:
-		m.scroll(body)
+		m.scroll(pageStep(body))
 	case keys.PageUp:
-		m.scroll(-body)
+		m.scroll(-pageStep(body))
 	case keys.Top:
 		m.top = 0
 	case keys.Bottom:
@@ -221,14 +219,13 @@ func (m *Model) key(msg tea.KeyMsg) tea.Cmd {
 		m.numbers = !m.numbers
 		m.rebuild()
 	case keys.Search:
-		m.typing = true
-		m.input = ""
+		m.openPalette(paletteSearch)
 	case keys.NextMatch:
 		m.jumpMatch(1)
 	case keys.PrevMatch:
 		m.jumpMatch(-1)
 	case keys.Help:
-		m.openPalette()
+		m.openPalette(paletteCommands)
 	case keys.Command:
 		m.cmdMode = true
 		m.cmdInput = ""
@@ -247,36 +244,6 @@ func (m *Model) clearSearch() {
 	m.r.Query = ""
 	m.matches = nil
 	m.wrapped = map[int][][]render.Seg{}
-}
-
-func (m *Model) typingKey(msg tea.KeyMsg) tea.Cmd {
-	switch msg.String() {
-	case "esc":
-		m.typing = false
-		m.input = ""
-	case "enter":
-		m.typing = false
-		m.query = m.input
-		m.r.Query = m.query
-		m.matches = m.findMatches()
-		m.matchAt = 0
-		m.wrapped = map[int][][]render.Seg{}
-		if len(m.matches) > 0 {
-			m.jumpMatch(0)
-		}
-	case "backspace":
-		if m.input != "" {
-			r := []rune(m.input)
-			m.input = string(r[:len(r)-1])
-		}
-	case "ctrl+c":
-		return tea.Quit
-	default:
-		if msg.Type == tea.KeyRunes || msg.Type == tea.KeySpace {
-			m.input += string(msg.Runes)
-		}
-	}
-	return nil
 }
 
 func (m *Model) commandKey(msg tea.KeyMsg) tea.Cmd {
@@ -316,7 +283,7 @@ func (m *Model) exec(line string) tea.Cmd {
 		return tea.Quit
 
 	case "help", "h":
-		m.openPalette()
+		m.openPalette(paletteCommands)
 
 	case "theme":
 		if len(fields) != 2 {
@@ -448,11 +415,20 @@ func (m *Model) rebuild() {
 	m.clampTop()
 }
 
-func (m *Model) bodyHeight() int {
-	h := m.height - 2 // pinned file header and its rule
-	if m.chromeVisible() {
-		h--
+// pageStep is a page minus two lines, so the first lines of the next page are
+// the last lines of this one. A pager that steps a whole page makes the reader
+// find their place again every time.
+func pageStep(body int) int {
+	if body > 3 {
+		return body - 2
 	}
+	return body
+}
+
+func (m *Model) bodyHeight() int {
+	// The chrome line overlays the last row instead of shrinking the viewport,
+	// so opening a search prompt never moves the diff.
+	h := m.height - 1 // pinned file header
 	if h < 1 {
 		return 1
 	}
@@ -619,24 +595,32 @@ func (m *Model) View() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
 	}
+	base := m.diffView()
 	if m.palette {
-		return m.paletteView()
+		return m.paletteOverlay(base)
 	}
+	return base
+}
+
+// diffView is the review surface itself, without the palette.
+func (m *Model) diffView() string {
 	body := m.bodyHeight()
 	chrome := m.chromeVisible()
+	visible := body
+	if chrome {
+		visible--
+	}
 
 	var b strings.Builder
 	b.WriteString(m.headerLine())
 	b.WriteByte('\n')
-	b.WriteString(m.headerRule())
-	b.WriteByte('\n')
-	for i := 0; i < body; i++ {
+	for i := 0; i < visible; i++ {
 		line := m.top + i
 		if line < m.total {
 			b.WriteString(m.visualLine(line))
 		}
 		b.WriteString("\x1b[0m")
-		if i < body-1 || chrome {
+		if i < visible-1 || chrome {
 			b.WriteByte('\n')
 		}
 	}
@@ -644,16 +628,6 @@ func (m *Model) View() string {
 		b.WriteString(m.chromeLine())
 	}
 	return b.String()
-}
-
-// headerRule is the single dim line that separates the pinned header from the
-// diff. Without it the header reads as just another line of content.
-func (m *Model) headerRule() string {
-	if m.r.Width <= 0 {
-		return ""
-	}
-	segs := []render.Seg{{Text: strings.Repeat("─", m.r.Width), Style: render.Style{Fg: m.r.Pal.Dim}}}
-	return render.ANSI(segs, m.r.Depth)
 }
 
 // headerLine renders the pinned header for the file under the viewport.
@@ -671,16 +645,9 @@ func (m *Model) headerLine() string {
 func (m *Model) visualLine(n int) string {
 	idx := m.rowAt(n)
 	sub := n - m.starts[idx]
-	if m.rows[idx].Kind == layout.FileRow {
-		if sub == 1 {
-			return m.r.Rule()
-		}
-		return render.ANSI(m.r.Segments(m.rows[idx]), m.r.Depth)
-	}
 	wrapped, ok := m.wrapped[idx]
 	if !ok {
-		segs := m.r.Segments(m.rows[idx])
-		wrapped = render.Wrap(segs, m.r.Width)
+		wrapped = m.r.SplitLines(m.rows[idx])
 		if len(m.wrapped) > 256 {
 			m.wrapped = map[int][][]render.Seg{}
 		}
@@ -694,7 +661,7 @@ func (m *Model) visualLine(n int) string {
 
 // chromeVisible is true only while there is something transient to show.
 func (m *Model) chromeVisible() bool {
-	return m.typing || m.cmdMode || m.query != "" || m.message != ""
+	return m.cmdMode || m.query != "" || m.message != ""
 }
 
 // chromeLine is the transient bottom line: a prompt, a search, or a message.
@@ -707,12 +674,6 @@ func (m *Model) chromeLine() string {
 		segs = append(segs,
 			render.Seg{Text: ":", Style: render.Style{Fg: pal.Accent, Bold: true}},
 			render.Seg{Text: m.cmdInput, Style: render.Style{Fg: pal.Text}},
-			render.Seg{Text: "▏", Style: render.Style{Fg: pal.Accent}},
-		)
-	case m.typing:
-		segs = append(segs,
-			render.Seg{Text: "/", Style: render.Style{Fg: pal.Text}},
-			render.Seg{Text: m.input, Style: render.Style{Fg: pal.Text}},
 			render.Seg{Text: "▏", Style: render.Style{Fg: pal.Accent}},
 		)
 	case m.query != "":

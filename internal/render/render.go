@@ -36,8 +36,8 @@ func (r *Renderer) Segments(row layout.Row) []Seg {
 	case layout.HunkRow:
 		return r.hunkSegs(row)
 	}
-	if r.Mode == layout.Split {
-		return r.splitSegs(row)
+	if r.Mode == layout.Split && row.Kind == layout.LineRow {
+		return r.SplitLines(row)[0]
 	}
 	return r.unifiedSegs(row)
 }
@@ -66,11 +66,21 @@ func (r *Renderer) Fill(row layout.Row) Style {
 
 // Height is how many visual lines a row occupies at the current width.
 func (r *Renderer) Height(row layout.Row) int {
-	if row.Kind == layout.FileRow {
-		return 2 // the name and the rule under it
-	}
-	if r.Width <= 0 || r.Mode == layout.Split {
+	if r.Width <= 0 {
 		return 1
+	}
+	if row.Kind == layout.LineRow && r.Mode == layout.Split {
+		if lw, _, ok := r.splitWidths(); ok {
+			tw := lw - r.cellLead(row.Gutter)
+			h := 1
+			if row.Left != nil {
+				h = max(h, wrapCount(row.Left.Text, tw))
+			}
+			if row.Right != nil {
+				h = max(h, wrapCount(row.Right.Text, tw))
+			}
+			return h
+		}
 	}
 	var w int
 	switch row.Kind {
@@ -88,47 +98,69 @@ func (r *Renderer) Height(row layout.Row) int {
 	return (w + r.Width - 1) / r.Width
 }
 
+// wrapCount is how many lines text needs at width w.
+func wrapCount(text string, w int) int {
+	if w <= 0 {
+		return 1
+	}
+	width := runewidth.StringWidth(text)
+	if width == 0 {
+		return 1
+	}
+	return (width + w - 1) / w
+}
+
+// splitWidths is the width of each pane, or false when the terminal is too
+// narrow to compare.
+func (r *Renderer) splitWidths() (lw, rw int, ok bool) {
+	if r.Width < 20 {
+		return 0, 0, false
+	}
+	lw = r.Width / 2
+	return lw, r.Width - lw, true
+}
+
+// cellLead is the columns before a cell's text: number, sign and a space.
+func (r *Renderer) cellLead(gutter int) int {
+	if !r.Numbers {
+		return 2
+	}
+	return gutter + 3
+}
+
 // fileSegs draws a file header. It is text on the terminal's own background:
 // a header is a label, not a surface, and a band here would compete with the
 // bands that mark changed lines.
 func (r *Renderer) fileSegs(f *patch.File) []Seg {
-	left := []Seg{{Text: " ", Style: Style{}}}
+	bg := Style{Bg: r.Pal.FileBg}
+	left := []Seg{{Text: " ", Style: bg}}
 
 	path := expand.Expand(strings.TrimPrefix(f.Path(), r.Prefix))
-	dir, base := path, ""
+	dir, base := "", path
 	if i := strings.LastIndexByte(path, '/'); i >= 0 {
 		dir, base = path[:i+1], path[i+1:]
 	}
 	if dir != "" {
-		left = append(left, Seg{Text: dir, Style: Style{Fg: r.Pal.Dim}})
+		left = append(left, Seg{Text: dir, Style: Style{Fg: r.Pal.FileDim, Bg: r.Pal.FileBg}})
 	}
-	left = append(left, Seg{Text: base, Style: Style{Fg: r.Pal.FileFg, Bold: true}})
+	left = append(left, Seg{Text: base, Style: Style{Fg: r.Pal.FileFg, Bg: r.Pal.FileBg, Bold: true}})
 	if f.Status != patch.Modified {
-		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.Dim}})
+		left = append(left, Seg{Text: "  " + string(f.Status.Letter()), Style: Style{Fg: r.Pal.FileDim, Bg: r.Pal.FileBg}})
 	}
 
 	right := make([]Seg, 0, 4)
 	if f.Additions > 0 {
-		right = append(right, Seg{Text: "+" + strconv.Itoa(f.Additions), Style: Style{Fg: r.Pal.AddFg}})
+		right = append(right, Seg{Text: "+" + strconv.Itoa(f.Additions), Style: Style{Fg: r.Pal.AddFg, Bg: r.Pal.FileBg}})
 	}
 	if f.Deletions > 0 {
 		if len(right) > 0 {
-			right = append(right, Seg{Text: " ", Style: Style{}})
+			right = append(right, Seg{Text: " ", Style: bg})
 		}
-		right = append(right, Seg{Text: "-" + strconv.Itoa(f.Deletions), Style: Style{Fg: r.Pal.DelFg}})
+		right = append(right, Seg{Text: "-" + strconv.Itoa(f.Deletions), Style: Style{Fg: r.Pal.DelFg, Bg: r.Pal.FileBg}})
 	}
-	right = append(right, Seg{Text: " ", Style: Style{}})
+	right = append(right, Seg{Text: " ", Style: bg})
 
-	return r.joinBand(left, right, Style{})
-}
-
-// Rule is the single dim line that ends a file header.
-func (r *Renderer) Rule() string {
-	if r.Width <= 0 {
-		return ""
-	}
-	segs := []Seg{{Text: strings.Repeat("─", r.Width), Style: Style{Fg: r.Pal.Dim}}}
-	return ANSI(segs, r.Depth)
+	return r.joinBand(left, right, bg)
 }
 
 // joinBand places left and right text on one full-width band, filling the gap
@@ -187,28 +219,77 @@ func (r *Renderer) unifiedSegs(row layout.Row) []Seg {
 	return segs
 }
 
-func (r *Renderer) splitSegs(row layout.Row) []Seg {
-	total := r.Width
-	if total <= 0 {
-		total = 160
+// SplitLines returns every visual line of a row, wrapped to the renderer width.
+// Both panes wrap independently and are then paired line for line, so a long
+// line grows its row instead of being cut off at the seam.
+func (r *Renderer) SplitLines(row layout.Row) [][]Seg {
+	if row.Kind == layout.LineRow && r.Mode == layout.Split {
+		lw, rw, ok := r.splitWidths()
+		if !ok {
+			return Wrap(r.unifiedFromSplit(row), r.Width)
+		}
+		left := r.cellLines(row.File, row.Left, true, lw, row.Gutter)
+		right := r.cellLines(row.File, row.Right, false, rw, row.Gutter)
+		n := len(left)
+		if len(right) > n {
+			n = len(right)
+		}
+		out := make([][]Seg, n)
+		for i := 0; i < n; i++ {
+			var segs []Seg
+			if i < len(left) {
+				segs = append(segs, left[i]...)
+			} else {
+				segs = append(segs, blankSegs(lw)...)
+			}
+			if i < len(right) {
+				segs = append(segs, right[i]...)
+			} else {
+				segs = append(segs, blankSegs(rw)...)
+			}
+			out[i] = segs
+		}
+		return out
 	}
-	const sepW = 2
-	avail := total - sepW
-	if avail < 20 {
-		// Too narrow to compare: fall back to a single column so the row is
-		// still readable at any terminal size.
-		return r.unifiedFromSplit(row)
-	}
-	lw := avail / 2
-	rw := avail - lw
+	return Wrap(r.Segments(row), r.Width)
+}
 
-	segs := r.cellSegs(row.File, row.Left, true, lw, row.Gutter)
-	// A drawn divider competes with the gutter for a job the gutter already
-	// does. Two blank columns of the terminal's own background separate the
-	// halves and nothing else.
-	segs = append(segs, Seg{Text: "  ", Style: Style{}})
-	segs = append(segs, r.cellSegs(row.File, row.Right, false, rw, row.Gutter)...)
-	return segs
+// cellLines wraps one half of a split row into display lines, each exactly w
+// columns wide. The line number and sign appear once, on the first line.
+func (r *Renderer) cellLines(f *patch.File, c *layout.Cell, old bool, w, gutter int) [][]Seg {
+	if c == nil {
+		return [][]Seg{blankSegs(w)}
+	}
+	base := r.baseStyle(signOf(c.Kind))
+	lead := r.cellLead(gutter)
+	tw := w - lead
+	if tw < 1 {
+		tw = 1
+	}
+	text := r.compose(c.Text, c.Emph, base, r.emphStyle(signOf(c.Kind)))
+	chunks := Wrap(text, tw)
+
+	out := make([][]Seg, 0, len(chunks))
+	for i, chunk := range chunks {
+		var segs []Seg
+		if i == 0 {
+			if r.Numbers {
+				segs = append(segs, Seg{Text: padNum(c.No, gutter), Style: Style{Fg: r.Pal.Dim, Bg: base.Bg}})
+			}
+			sign := signOf(c.Kind)
+			segs = append(segs, Seg{Text: string(sign), Style: r.signStyle(sign)})
+			segs = append(segs, Seg{Text: " ", Style: base})
+		} else {
+			segs = append(segs, Seg{Text: strings.Repeat(" ", lead), Style: base})
+		}
+		segs = append(segs, chunk...)
+		out = append(out, Fit(segs, w, base))
+	}
+	return out
+}
+
+func blankSegs(w int) []Seg {
+	return []Seg{{Text: strings.Repeat(" ", w)}}
 }
 
 func (r *Renderer) unifiedFromSplit(row layout.Row) []Seg {
@@ -226,6 +307,8 @@ func (r *Renderer) unifiedFromSplit(row layout.Row) []Seg {
 
 func (r *Renderer) cellSegs(f *patch.File, c *layout.Cell, old bool, w, gutter int) []Seg {
 	if c == nil {
+		// The empty half of an unpaired change stays blank: a gap is not a
+		// change, and painting it made it look like one.
 		return []Seg{{Text: strings.Repeat(" ", w), Style: Style{}}}
 	}
 	base := r.baseStyle(signOf(c.Kind))

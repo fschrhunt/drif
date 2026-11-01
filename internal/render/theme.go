@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
 
 // Color is an optional RGB colour. An unset colour means "leave whatever the
@@ -62,6 +62,15 @@ type Palette struct {
 
 	HunkFg Color
 	FileFg Color
+	// FileDim is the directory and status letter inside a file header: lighter
+	// than the global dim, because it sits on the header's own surface.
+	FileDim Color
+	// Panel and PanelSel are the command palette's surface and its selected row.
+	Panel    Color
+	PanelSel Color
+	// FileBg is the dim surface behind a file header. It exists so a header
+	// reads as a strip of chrome rather than a line of content.
+	FileBg Color
 }
 
 // Dark suits terminals with a dark background. Dim is the same grey on both
@@ -77,6 +86,11 @@ func Dark() *Palette {
 		DelBg:     Hex("#3b1114"),
 		DelEmphBg: Hex("#62171d"),
 		HunkFg:    Hex("#636363"),
+		FileFg:    Hex("#fafafa"),
+		FileDim:   Hex("#9b9b9b"),
+		FileBg:    mix(Hex("#0a0a0a"), Hex("#fafafa"), 0.12),
+		Panel:     mix(Hex("#0a0a0a"), Hex("#fafafa"), 0.07),
+		PanelSel:  mix(Hex("#0a0a0a"), Hex("#fafafa"), 0.18),
 	}
 }
 
@@ -91,6 +105,11 @@ func Light() *Palette {
 		DelBg:     Hex("#ffe6e8"),
 		DelEmphBg: Hex("#f0abb0"),
 		HunkFg:    Hex("#636363"),
+		FileFg:    Hex("#0a0a0a"),
+		FileDim:   Hex("#676767"),
+		FileBg:    mix(Hex("#ffffff"), Hex("#0a0a0a"), 0.12),
+		Panel:     mix(Hex("#ffffff"), Hex("#0a0a0a"), 0.07),
+		PanelSel:  mix(Hex("#ffffff"), Hex("#0a0a0a"), 0.18),
 	}
 }
 
@@ -102,16 +121,84 @@ func Light() *Palette {
 // terminal directly, and a terminal that will not answer is assumed dark, where
 // a light palette would be unreadable.
 func DetectPalette() *Palette {
+	// A terminal has no alpha. The closest thing to a translucent layer is a
+	// blend with the page, so ask the terminal for its actual background and
+	// derive every surface from it. That is why the header band works on a
+	// black terminal and on a warm-grey one.
+	if bg, ok := terminalBackground(); ok {
+		return paletteFor(bg)
+	}
 	if light, ok := colorFGBG(); ok {
 		if light {
 			return Light()
 		}
 		return Dark()
 	}
-	if lipgloss.HasDarkBackground() {
-		return Dark()
+	return Dark()
+}
+
+// terminalBackground asks the terminal for its background colour. Terminals
+// that do not answer return NoColor, which is why every caller needs a fallback.
+func terminalBackground() (Color, bool) {
+	out := termenv.DefaultOutput()
+	if out.TTY() == nil {
+		return Color{}, false
 	}
-	return Light()
+	c := out.BackgroundColor()
+	switch c.(type) {
+	case nil, termenv.NoColor:
+		return Color{}, false
+	}
+	r, g, b := termenv.ConvertToRGB(c).RGB255()
+	if r == 0 && g == 0 && b == 0 && c == termenv.ANSIColor(0) {
+		// Either a genuinely black terminal or the library's default. Both are
+		// safe to treat as black, which is the common case.
+		return Color{R: 0, G: 0, B: 0, Set: true}, true
+	}
+	return Color{R: r, G: g, B: b, Set: true}, true
+}
+
+// paletteFor derives a palette from the page colour. Change bands are the page
+// mixed toward the accent, the way a band should belong to the same family as
+// everything else.
+func paletteFor(bg Color) *Palette {
+	dark := luminance(bg) < 0.5
+	add := Hex("#07c480")
+	del := Hex("#ff2e3f")
+	mixer := Hex("#fafafa")
+	if !dark {
+		add = Hex("#0b8a46")
+		del = Hex("#cf222e")
+		mixer = Hex("#0a0a0a")
+	}
+	return &Palette{
+		Dim:       Hex("#636363"),
+		AddFg:     add,
+		AddBg:     mix(bg, add, 0.20),
+		AddEmphBg: mix(bg, add, 0.34),
+		DelFg:     del,
+		DelBg:     mix(bg, del, 0.20),
+		DelEmphBg: mix(bg, del, 0.34),
+		HunkFg:    Hex("#636363"),
+		FileFg:    mixer,
+		FileDim:   mix(bg, mixer, 0.62),
+		FileBg:    mix(bg, mixer, 0.12),
+		Panel:     mix(bg, mixer, 0.07),
+		PanelSel:  mix(bg, mixer, 0.18),
+	}
+}
+
+// mix blends b into a by t (0..1), in sRGB. Terminals cannot composite, so this
+// is how a lower-opacity surface is expressed.
+func mix(a, b Color, t float64) Color {
+	l := func(x, y uint8) uint8 {
+		return uint8(float64(x)*(1-t) + float64(y)*t + 0.5)
+	}
+	return Color{R: l(a.R, b.R), G: l(a.G, b.G), B: l(a.B, b.B), Set: true}
+}
+
+func luminance(c Color) float64 {
+	return (0.2126*float64(c.R) + 0.7152*float64(c.G) + 0.0722*float64(c.B)) / 255
 }
 
 // colorFGBG decodes the de facto COLORFGBG convention, "foreground;background",

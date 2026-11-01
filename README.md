@@ -236,8 +236,9 @@ drif renders patches; it does not implement git. It asks git for the diff, parse
 patch, and lays the hunks out as rows. Every surface — split view, pager, plain text, JSON — reads
 those same rows, so what you see interactively is what an agent gets.
 
-The palette is monochrome apart from green and red. A diff has exactly two things worth
-signalling, and a third colour only competes with them. The file header is pinned to the top and
+Long lines wrap — in one column and in both halves of the split — so there is never a horizontal
+scroll to chase. The palette is monochrome apart from green and red: a diff has exactly two things
+worth signalling, and a third colour only competes with them. The file header is pinned to the top and
 changes as you move between files; the bottom line appears only while you are searching, typing a
 command, or reading an error.
 
