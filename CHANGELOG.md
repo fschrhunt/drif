@@ -1,6 +1,6 @@
 # drif releases
 
-## v1.1.0 · 2026-11-01
+## v0.1.1 · 2026-11-01
 
 - Monochrome: colour now means added or removed and nothing else. Only changed lines paint a
   background; headers, hunk separators and metadata are text on the terminal's own background.
