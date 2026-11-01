@@ -33,8 +33,8 @@
   and weekly dependency updates. `.github/rulesets/main.json` is the branch protection source of
   truth; if you rename the `Required` job, change both.
 - `assets/header.png`: the README screenshot, a capture of the real interface rendered with
-  DejaVu Sans Mono: a square mat, a 20px gap and one rounded window. Re-shoot it when the visual
-  design changes.
+  DejaVu Sans Mono on a soft gradient backdrop: one rounded window, a shadow, no chrome. Re-shoot
+  it when the visual design changes.
 - `scripts/demo.sh`: builds a demo repository. The default is a realistic branch (a feature, tests,
   a rename, a deletion, a doc update) for judging the experience; `--edges` builds the awkward
   shapes (binary, symlink, CRLF, non-ASCII paths, mode-only) for changing the renderer. The edge
