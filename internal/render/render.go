@@ -181,8 +181,9 @@ func (r *Renderer) splitSegs(row layout.Row) []Seg {
 	if total <= 0 {
 		total = 160
 	}
-	const sepW = 2
-	avail := total - sepW
+	// The panes touch: a change reads as one block across the seam, red against
+	// green, the way a split diff is meant to compare.
+	avail := total
 	if avail < 20 {
 		// Too narrow to compare: fall back to a single column so the row is
 		// still readable at any terminal size.
@@ -192,10 +193,6 @@ func (r *Renderer) splitSegs(row layout.Row) []Seg {
 	rw := avail - lw
 
 	segs := r.cellSegs(row.File, row.Left, true, lw, row.Gutter)
-	// A drawn divider competes with the gutter for a job the gutter already
-	// does. Two blank columns of the terminal's own background separate the
-	// halves and nothing else.
-	segs = append(segs, Seg{Text: "  ", Style: Style{}})
 	segs = append(segs, r.cellSegs(row.File, row.Right, false, rw, row.Gutter)...)
 	return segs
 }
