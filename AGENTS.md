@@ -63,7 +63,8 @@ add output, add it to the row model rather than to one renderer.
 Rows stay independent of terminal width. Wrapping and truncation happen at draw time; a row that
 knows about columns breaks the pager/TUI agreement.
 
-Comment modules and functions with their purpose and contract; avoid line-by-line comments.
+Document public contracts and non-obvious constraints or reasons.
+Omit comments that merely restate clear names or code.
 Update the comments and docs a change touches.
 
 Write one focused test per behaviour worth protecting, using `testing`. Tests must be hermetic and

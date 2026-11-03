@@ -21,7 +21,6 @@ import (
 // making someone write a one-element array is a pointless tax.
 type KeyList []string
 
-// UnmarshalTOML implements toml.Unmarshaler.
 func (k *KeyList) UnmarshalTOML(v any) error {
 	switch t := v.(type) {
 	case string:
@@ -55,7 +54,6 @@ type Config struct {
 	Colors    theme.ColorSet     `toml:"colors"`
 }
 
-// Layouts are the accepted values of layout.
 var Layouts = []string{"auto", "split", "unified", "new"}
 
 // Default is what drif does with no config file at all: follow the terminal,
