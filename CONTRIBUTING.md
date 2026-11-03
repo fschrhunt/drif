@@ -60,3 +60,7 @@ unchanged formula creates no PR. Retries reuse only an open PR from the same
 author containing one formula-only automation commit with identical content and
 file mode; human edits and closed PRs require manual review and are never
 overwritten.
+
+## Dependency updates
+
+Dependabot groups dependency and GitHub Actions updates into one weekly pull request. Review changes and required checks before merging.
