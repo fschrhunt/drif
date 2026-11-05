@@ -14,6 +14,8 @@ usage: ./x [command] [args...]
   build [args...]    Forward arguments to go build (default: ./...)
   review [args...]   Build this checkout and review its own changes with it
   demo [--edges]     Build the demo repository and review it
+  release-check [vX.Y.Z] Build and verify four temporary release archives
+  dist vX.Y.Z       Build and verify release archives in dist/; never publish
   help | --help | -h Show this help
 EOF
 }
@@ -33,6 +35,8 @@ case "$command" in
         [ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && [ "$1" = "--edges" ]; } || invalid
         ;;
     review) ;;
+    release-check) [ "$#" -le 1 ] || invalid ;;
+    dist) [ "$#" -eq 1 ] || invalid ;;
     help|--help|-h) [ "$#" -eq 0 ] || invalid; usage; exit 0 ;;
 esac
 
@@ -83,5 +87,10 @@ case "$command" in
         cd "${TMPDIR:-/tmp}/drif-demo"
         exec "$root/dist/drif"
         ;;
+    release-check)
+        python3 -m unittest discover -s .github/release -p 'test_*.py'
+        exec python3 .github/release/package.py check "$@"
+        ;;
+    dist) exec python3 .github/release/package.py dist "$1" ;;
     *) invalid ;;
 esac

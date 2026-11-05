@@ -1,6 +1,7 @@
 /drif
 /git-drif
 dist/
+__pycache__/
 
 .claude/
 .codex/

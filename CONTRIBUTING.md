@@ -18,6 +18,8 @@ release tooling):
 and release checks use the same command, including `go test -race ./...`.
 `./x --help` lists targets; `./x fmt --check`, `./x lint`, `./x test` and
 `./x build` run individual checks. Test and build arguments are forwarded to Go.
+For distribution changes, also run `./x release-check` to build and verify all
+four archives, including the extracted native binary. CI runs it on both systems.
 
 Tests are hermetic and offline. `internal/git/real_test.go` builds throwaway
 repositories in `t.TempDir()` and parses the output of the real git binary —
@@ -46,7 +48,7 @@ project's MIT license.
 See [docs/releasing.md](docs/releasing.md) for the one-time environment and
 token setup.
 
-`scripts/release.sh vX.Y.Z` is a two-step release: it first opens a PR naming
+`.github/release/release.sh vX.Y.Z` is a two-step release: it first opens a PR naming
 the Unreleased changelog section, then, once merged, asks Actions to tag and
 publish. The release workflow builds the archives, attests them, writes the
 notes from the changelog and opens a Homebrew formula PR. Automation never

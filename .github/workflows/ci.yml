@@ -26,6 +26,7 @@ jobs:
         with:
           go-version-file: go.mod
       - run: ./x check
+      - run: ./x release-check
 
   # The pipeline depends on the git binary, not just on Go, and the two major
   # implementations disagree about patch output in small ways.
@@ -41,6 +42,7 @@ jobs:
         with:
           go-version-file: go.mod
       - run: ./x check
+      - run: ./x release-check
 
   # Branch protection requires a check named "Required"; it aggregates the
   # matrix so the ruleset does not have to name every runner.

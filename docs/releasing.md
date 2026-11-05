@@ -1,6 +1,6 @@
 # Releasing
 
-Releases are cut from `main` by tag. `scripts/release.sh` drives the two steps;
+Releases are cut from `main` by tag. `.github/release/release.sh` drives the two steps;
 everything after the tag happens in Actions.
 
 ## One-time setup
@@ -40,7 +40,7 @@ gh api repos/fschrhunt/drif/environments --jq '.environments[].name'
 ## Cutting a release
 
 ```sh
-scripts/release.sh v0.1.0
+.github/release/release.sh v0.1.0
 ```
 
 The first run opens a PR that renames the `## Unreleased` changelog section to
@@ -53,12 +53,29 @@ The tag starts `.github/workflows/release.yml`:
 | Job | What it does |
 | --- | --- |
 | `check` | the tag is on `main`, the changelog has its section, `./x check` passes |
-| `release` | builds linux/darwin × amd64/arm64 with `CGO_ENABLED=0`, writes `checksums.txt`, attests the archives, publishes the release with notes from the changelog |
+| `release` | builds and verifies linux/darwin × amd64/arm64 archives with `CGO_ENABLED=0`, writes `checksums.txt`, attests those same archives, publishes the release with notes from the changelog |
 | `formula` | regenerates `drif.rb` from the release checksums and opens a review PR; automation never merges it |
 | `install` | runs `install.sh` against the published release on Linux and macOS and checks `drif --version` |
 
 If a release fails after the tag exists, delete the tag, fix the problem, and
 run the command again. Nothing is rewritten in place.
+
+## Local packaging checks
+
+Release helpers live in `.github/release/`; `scripts/demo.sh` remains a developer
+tool, available through `./x demo`. No `./x` command publishes or creates tags.
+
+`./x release-check [vX.Y.Z]` runs the packager's regression test, builds all four
+archives in a temporary directory and removes them afterward (default version:
+`v0.0.0`). CI runs this on Linux
+and macOS. The shared packager checks target/build settings, archive contents,
+executable mode and checksums, and runs the extracted native binary's version
+and help commands. Cross-builds do not verify runtime behavior on other targets.
+
+`./x dist vX.Y.Z` runs the same checks and leaves the four archives and
+`checksums.txt` in `dist/`, refusing to overwrite existing release files. The
+release workflow uses this command, then attests and publishes those verified
+archives without rebuilding. Existing changelog and tag checks stay in the workflow.
 
 ## Branch protection
 
@@ -81,7 +98,7 @@ A release needs **write access to this repository**. Today that is one account;
 there is no separate releaser role.
 
 - Pushing a `v*` tag needs write access and starts the release workflow.
-- `scripts/release.sh` dispatches the same workflow, which also needs write
+- `.github/release/release.sh` dispatches the same workflow, which also needs write
   access.
 - Nobody can release code that is not on `main`: the tag job checks that the
   tagged commit is an ancestor of `origin/main`, and that `CHANGELOG.md` names
