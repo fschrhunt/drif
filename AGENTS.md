@@ -5,6 +5,8 @@
 - `./x check` (the default) checks Go formatting, vet, build and race tests without rewriting
   sources.
 - `./x --help` lists targets; `./x test` and `./x build` forward Go arguments.
+- `./x release-check` builds and verifies four temporary release archives offline;
+  `./x dist vX.Y.Z` retains them in `dist/`. Neither publishes.
 - `go build -o drif ./cmd/drif` builds the binary (Go 1.26 or newer).
 - `go test ./...` runs the offline suites. The git tests create throwaway repositories in
   `t.TempDir()`; nothing touches a real repository. `internal/git/real_test.go` runs the real git
@@ -26,9 +28,10 @@
 - `internal/render/`: palette detection, ANSI encoding, width maths, plain text, list output, JSON.
 - `internal/tui/`: the bubbletea model and the fsnotify watcher for live updates.
 - `install.sh`: downloads a release, checks it against `checksums.txt`, and links `git-drif`.
-- `scripts/release.sh`: the two-step release (changelog PR, then tag through Actions).
-- `scripts/formula.sh` and `scripts/formula_pr.py`: generate `drif.rb` from release checksums and
+- `.github/release/release.sh`: the two-step release (changelog PR, then tag through Actions).
+- `.github/release/formula.sh` and `.github/release/formula_pr.py`: generate `drif.rb` from release checksums and
   open it as a reviewable PR; automation never merges it.
+- `.github/release/package.py`: shared local/CI archive build and verification.
 - `.github/workflows/`: CI (Linux, macOS, and a `Required` aggregate the ruleset names), release,
   and weekly dependency updates. `.github/rulesets/main.json` is the branch protection source of
   truth; if you rename the `Required` job, change both.
