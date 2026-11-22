@@ -43,22 +43,24 @@ gh api repos/fschrhunt/drif/environments --jq '.environments[].name'
 .github/release/release.sh v0.1.0
 ```
 
-The first run opens a PR that renames the `## Unreleased` changelog section to
-`## v0.1.0 · YYYY-MM-DD`. Merge it, pull `main`, then run the same command
-again. The second run checks that CI passed on that exact commit and asks
-Actions to create the tag.
+It checks that CI passed on the current `main` commit, drafts the notes from the
+pull requests merged since the last release, and opens them in your editor;
+what you save is published. Actions adds them to `CHANGELOG.md` as
+`## v0.1.0 · YYYY-MM-DD` in a release commit on top of `main`, tags that
+commit, and opens a `release/v0.1.0` PR that brings the changelog to `main`;
+merge it after CI passes. `CHANGELOG.md` is never edited by hand.
 
 The tag starts `.github/workflows/release.yml`:
 
 | Job | What it does |
 | --- | --- |
-| `check` | the tag is on `main`, the changelog has its section, `./x check` passes |
+| `check` | the tag is a release commit on top of `main` that only changes the changelog, which has its section; `./x check` passes |
 | `release` | builds and verifies linux/darwin × amd64/arm64 archives with `CGO_ENABLED=0`, writes `checksums.txt`, attests those same archives, publishes the release with notes from the changelog |
 | `formula` | regenerates `drif.rb` from the release checksums and opens a review PR; automation never merges it |
 | `install` | runs `install.sh` against the published release on Linux and macOS and checks `drif --version` |
 
-If a release fails after the tag exists, delete the tag, fix the problem, and
-run the command again. Nothing is rewritten in place.
+If a release fails after the tag exists, delete the tag and its `release/` branch,
+fix the problem, and run the command again. Nothing is rewritten in place.
 
 ## Local packaging checks
 
@@ -101,8 +103,8 @@ there is no separate releaser role.
 - `.github/release/release.sh` dispatches the same workflow, which also needs write
   access.
 - Nobody can release code that is not on `main`: the tag job checks that the
-  tagged commit is an ancestor of `origin/main`, and that `CHANGELOG.md` names
-  the version.
+  tagged commit is a release commit directly on top of `origin/main` that only
+  changes `CHANGELOG.md`, and that the changelog names the version.
 - Nobody can release untested code: the same job runs `./x check` on the tag.
 
 What limits the damage if an account or a token is compromised:

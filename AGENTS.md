@@ -28,7 +28,8 @@
 - `internal/render/`: palette detection, ANSI encoding, width maths, plain text, list output, JSON.
 - `internal/tui/`: the bubbletea model and the fsnotify watcher for live updates.
 - `install.sh`: downloads a release, checks it against `checksums.txt`, and links `git-drif`.
-- `.github/release/release.sh`: the two-step release (changelog PR, then tag through Actions).
+- `.github/release/release.sh`: reviews the release notes, then releases through Actions; `changelog.sh` writes
+  them into the release commit. Never edit `CHANGELOG.md` by hand.
 - `.github/release/formula.sh` and `.github/release/formula_pr.py`: generate `drif.rb` from release checksums and
   open it as a reviewable PR; automation never merges it.
 - `.github/release/package.py`: shared local/CI archive build and verification.
@@ -72,6 +73,6 @@ Update the comments and docs a change touches.
 
 Write one focused test per behaviour worth protecting, using `testing`. Tests must be hermetic and
 offline: no network, no real repositories, no dependence on the developer's terminal. Add a
-CHANGELOG entry for user-visible changes.
+Release notes are written when releasing.
 
 Preserve unrelated changes and never expose secrets.

@@ -1,5 +1,8 @@
 # drif releases
 
+Written by each release, newest first; the same notes are on
+[GitHub Releases](https://github.com/fschrhunt/drif/releases).
+
 ## Unreleased
 
 - The interactive worktree view updates automatically; Git reloads run in the background.
