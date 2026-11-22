@@ -33,7 +33,7 @@ and the second when changing the renderer:
 ./x demo --edges
 ```
 
-Add a CHANGELOG entry for user-visible changes, under `## Unreleased`. Keep
+Release notes are written when releasing. Keep
 `README.md` and `docs/plan.md` true to the code; a stale comment is worse than
 no comment.
 
@@ -48,10 +48,11 @@ project's MIT license.
 See [docs/releasing.md](docs/releasing.md) for the one-time environment and
 token setup.
 
-`.github/release/release.sh vX.Y.Z` is a two-step release: it first opens a PR naming
-the Unreleased changelog section, then, once merged, asks Actions to tag and
-publish. The release workflow builds the archives, attests them, writes the
-notes from the changelog and opens a Homebrew formula PR. Automation never
+`.github/release/release.sh vX.Y.Z` drafts the release notes, opens them in your
+editor, and asks Actions to release. The workflow adds the notes to `CHANGELOG.md`
+in a release commit, tags it, opens a PR that brings the changelog to main, then
+builds the archives, attests them, publishes with the same notes and opens a
+Homebrew formula PR. Automation never
 merges the formula PR.
 
 ## Formula updates
